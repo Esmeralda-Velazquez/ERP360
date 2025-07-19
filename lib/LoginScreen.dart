@@ -49,7 +49,7 @@ class LoginScreen extends StatelessWidget {
               border: OutlineInputBorder(),
               hintText: 'Admin',
             ),
-          ),
+          ), 
           const SizedBox(height: 20),
           TextField(
             obscureText: true,
@@ -58,7 +58,8 @@ class LoginScreen extends StatelessWidget {
               border: OutlineInputBorder(),
               hintText: '********',
             ),
-          ),
+          ), 
+          
           const SizedBox(height: 20),
           SizedBox(
             width: double.infinity,
