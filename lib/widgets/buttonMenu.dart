@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 
-Widget buttonMenu(String texto, IconData icono, Color color, VoidCallback onPressed) {
+Widget buttonMenu(
+  String texto,
+  IconData? icono,
+  Color color,
+  VoidCallback onPressed, {
+  String? imageAsset,
+}) {
   return SizedBox(
-    width: 250, 
-    height: 150, 
+    width: 250,
+    height: 150,
     child: ElevatedButton(
       onPressed: onPressed,
       style: ElevatedButton.styleFrom(
@@ -19,7 +25,10 @@ Widget buttonMenu(String texto, IconData icono, Color color, VoidCallback onPres
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icono, size: 40, color: color),
+          if (imageAsset != null)
+            Image.asset(imageAsset, height: 50)
+          else if (icono != null)
+            Icon(icono, size: 40, color: color),
           const SizedBox(height: 12),
           Text(
             texto,

@@ -10,8 +10,6 @@ class AuthProvider with ChangeNotifier {
 
   String? get token => _token;
   Future<void> login(String email, String password) async {
-    final url = Uri.parse('$_baseUrl/api/users/login');
-    final request = LoginRequest(email: email, password: password);
 
     try {
       final response = await http.post(

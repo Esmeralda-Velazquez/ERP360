@@ -63,7 +63,6 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _isLoading
                   ? null
                   : () {
-                      // Usa el context directamente del widget padre, no de esta función
                       _login();
                     },
               style: ElevatedButton.styleFrom(
@@ -147,7 +146,7 @@ Future<void> _login() async {
     // 🔒 Guarda sesión
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', true);
-    await prefs.setString('userEmail', email); // Opcional
+    await prefs.setString('userEmail', email);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Inicio de sesión exitoso')),

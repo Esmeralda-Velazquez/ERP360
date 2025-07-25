@@ -1,12 +1,15 @@
+import 'package:erpraf/views/UserManagment/ListCustomerScreen.dart';
+import 'package:erpraf/views/UserManagment/ListUserScreen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:erpraf/views/LoginScreen.dart';
 import 'package:erpraf/widgets/buttonMenu.dart';
-import 'package:erpraf/views/UserManagment/UserManagmentScreen.dart';
-import 'package:erpraf/views/Proveedores/ListSupplierScreen.dart';
+import 'package:erpraf/views/UserManagment/CreateUserScreen.dart';
+import 'package:erpraf/views/UserManagment/ListRolScreen.dart';
+import 'package:erpraf/views/UserManagment/ListCustomerScreen.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+class UserManagmentScreen extends StatelessWidget {
+  const UserManagmentScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -14,25 +17,13 @@ class HomeScreen extends StatelessWidget {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: Colors.blueGrey.shade900,
-        title: const Row(
-          children: [
-            CircleAvatar(
-              radius: 25,
-              backgroundColor: Colors.transparent,
-              backgroundImage: AssetImage('assets/avatar.png'),
-            ),
-            SizedBox(width: 10),
-            Text('Esmeralda Velazquez'),
-          ],
+        title: const Text('Gestión de usuarios'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
-        actions: [
-          TextButton.icon(
-            onPressed: () => cerrarSesion(context),
-            icon: const Icon(Icons.logout, color: Colors.white),
-            label: const Text('Cerrar sesión',
-                style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
       body: Center(
         child: Column(
@@ -41,18 +32,26 @@ class HomeScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                buttonMenu('Proveedores', Icons.people_outline, Colors.blue,
-                    () {
-                                    Navigator.push(
+                buttonMenu(
+                    'Crear usuario', Icons.people, Colors.blueGrey.shade900,
+                    imageAsset: 'assets/userIcon.png', () {
+                  Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const ListSupplierScreen(),
+                      builder: (context) => const CreateUserScreen(),
                     ),
                   );
                 }),
                 const SizedBox(width: 30),
-                buttonMenu('Ventas', Icons.sell_outlined, Colors.purple, () {
-                  print('Ir a Ventas');
+                buttonMenu(
+                    'Lista de usuario', Icons.people, Colors.blueGrey.shade900,
+                    imageAsset: 'assets/listUser.png', () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ListUserScreen(),
+                    ),
+                  );
                 }),
               ],
             ),
@@ -60,19 +59,25 @@ class HomeScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                buttonMenu('Gestion de usuarios',
-                    Icons.manage_accounts_outlined, Colors.indigo, () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const UserManagmentScreen(),
-                    ),
-                  );
-                }),
+                buttonMenu('Clientes', Icons.people, Colors.blueGrey.shade900,
+                    imageAsset: 'assets/cliente.png', () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ListCustomerScreen(),
+                        ),
+                      );
+                    }),
                 const SizedBox(width: 30),
                 buttonMenu(
-                    'Inventarios', Icons.inventory_2_outlined, Colors.red, () {
-                  print('Ir a Inventarios');
+                    'Registrar Rol', Icons.people, Colors.blueGrey.shade900,
+                    imageAsset: 'assets/rol.png', () {
+                                    Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ListRolScreen(),
+                    ),
+                  );
                 }),
               ],
             ),
