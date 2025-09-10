@@ -136,12 +136,16 @@ Future<void> _login() async {
     );
     return;
   }
+  print('Intentando iniciar sesión con $email');
+  print('Contraseña: $password');
 
   setState(() => _isLoading = true);
 
   try {
     final authService = Provider.of<AuthProvider>(context, listen: false);
+    print('Intentando iniciar sesión...');
     await authService.login(email, password);
+    
 
     // 🔒 Guarda sesión
     final prefs = await SharedPreferences.getInstance();

@@ -20,6 +20,7 @@ class AuthProvider with ChangeNotifier {
       );
 
       final json = jsonDecode(response.body);
+      print('Respuesta del servidor: $json');
 
       if (response.statusCode == 200 && json['success'] == true) {
         _token = json['token'];

@@ -4,14 +4,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:erpraf/controllers/AuthProvider.dart';
 import 'package:erpraf/views/LoginScreen.dart';
-import 'package:erpraf/views/HomeScreen.dart'; // 👈 Asegúrate de importar
-// Puedes crear una pantalla temporal tipo splash si gustas
+import 'package:erpraf/views/HomeScreen.dart'; 
+import 'package:erpraf/controllers/SupplierProvider.dart';
+import 'package:erpraf/controllers/UsersProvider.dart';
+import 'package:erpraf/controllers/RolesProvider.dart';
 
 void main() {
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => SupplierProvider()),
+        ChangeNotifierProvider(create: (_) => UsersProvider()),
+        ChangeNotifierProvider(create: (_) => RolesProvider()),
       ],
       child: const MyApp(),
     ),

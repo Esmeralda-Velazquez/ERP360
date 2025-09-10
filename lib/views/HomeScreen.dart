@@ -4,6 +4,7 @@ import 'package:erpraf/views/LoginScreen.dart';
 import 'package:erpraf/widgets/buttonMenu.dart';
 import 'package:erpraf/views/UserManagment/UserManagmentScreen.dart';
 import 'package:erpraf/views/Proveedores/ListSupplierScreen.dart';
+import 'package:erpraf/views/Inventory/MenuInventoryScreen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -72,7 +73,12 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(width: 30),
                 buttonMenu(
                     'Inventarios', Icons.inventory_2_outlined, Colors.red, () {
-                  print('Ir a Inventarios');
+                                    Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>  MenuInventoryScreen(),
+                    ),
+                  );
                 }),
               ],
             ),

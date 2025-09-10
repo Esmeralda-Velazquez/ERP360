@@ -1,54 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:erpraf/controllers/SupplierProvider.dart';
 import 'package:erpraf/views/Proveedores/CreateSupplierScreen.dart';
 import 'package:erpraf/views/Proveedores/EditSupplierScreen.dart';
 
-class ListSupplierScreen extends StatelessWidget {
+class ListSupplierScreen extends StatefulWidget {
   const ListSupplierScreen({super.key});
 
   @override
+  State<ListSupplierScreen> createState() => _ListSupplierScreenState();
+}
+
+class _ListSupplierScreenState extends State<ListSupplierScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Ejecuta la carga después del primer frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SupplierProvider>().fetchAll();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final supplier = [
-      {
-        'id': 1,
-        'Nombre': 'Esmeralda Velazquez',
-        'Telefono': 479535685,
-        'MetodoPago': 'esmeralda@gmail.com',
-        'Direccion': 'Calle Falsa 123',
-        'Categoria': 'Camisas',
-      },
-      {
-        'id': 2,
-        'Nombre': 'Guillermo Guerrero',
-        'Telefono': 479535686,
-        'MetodoPago': 'ventas@gmail.com',
-        'Direccion': 'Avenida Siempre Viva 456',
-        'Categoria': 'Pantalones',
-      },
-      {
-        'id': 3,
-        'Nombre': 'Leonardo Perez',
-        'Telefono': 479535687,
-        'MetodoPago': 'compras@gmail.com',
-        'Direccion': 'Calle Falsa 456',
-        'Categoria': 'Camisas',
-      },
-      {
-        'id': 4,
-        'Nombre': 'Ulises Hernandez',
-        'Telefono': 479535688,
-        'MetodoPago': 'usuario@gmail.com',
-        'Direccion': 'Calle Falsa 789',
-        'Categoria': 'Pantalones',
-      },
-      {
-        'id': 5,
-        'Nombre': 'Maria Diaz',
-        'Telefono': 479535689,
-        'MetodoPago': 'vista@gmail.com',
-        'Direccion': 'Calle Falsa 101',
-        'Categoria': 'Camisas',
-      },
-    ];
+    final prov = context.watch<SupplierProvider>();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -59,72 +34,120 @@ class ListSupplierScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => context.read<SupplierProvider>().fetchAll(),
+          )
+        ],
       ),
       body: Column(
         children: [
           _buildTableHeader(),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: supplier.length,
-              itemBuilder: (context, index) {
-                final supplierItem = supplier[index];
-                return Dismissible(
-                  key: Key(supplierItem['id'].toString()),
-                  background: _buildSwipeActionLeft(),
-                  secondaryBackground: _buildSwipeActionRight(),
-                  confirmDismiss: (direction) async {
-                    if (direction == DismissDirection.endToStart) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EditSupplierScreen(
-                            supplier: supplierItem,
-                          ),
-                        ),
-                      );
-                      return false;
-                    } else {
-                      final confirm = await showDialog(
-                        context: context,
-                        builder: (_) => DelateAlert(context),
-                      );
-                      if (confirm == true) {
-                        print('Proveedor eliminado: ${supplierItem['id']}');
-                      }
-                      return confirm == true;
-                    }
-                  },
-                  child: Card(
-                    margin:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 30),
+            child: Builder(
+              builder: (_) {
+                if (prov.loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (prov.error != null) {
+                  return Center(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 8),
-                      child: Row(
-                        children: [
-                          _buildCell(supplierItem['id'].toString(), flex: 1),
-                          _buildCell(supplierItem['Nombre'] as String?, flex: 2),
-                          _buildCell(
-                            supplierItem['Telefono'].toString(),
-                            flex: 2,
-                          ),
-                          _buildCell(
-                            supplierItem['MetodoPago'] as String?,
-                            flex: 2,
-                          ),
-                          _buildCell(
-                            supplierItem['Direccion'] as String?,
-                            flex: 2,
-                          ),
-                          _buildCell(
-                            supplierItem['Categoria'] as String?,
-                            flex: 2,
-                          ),
-                        ],
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        prov.error!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
+                  );
+                }
+                final items = prov.items;
+                if (items.isEmpty) {
+                  return const Center(child: Text('No hay proveedores'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final s = items[index];
+                    return Dismissible(
+                      key: Key(s.supplierId.toString()),
+                      background: _buildSwipeActionLeft(),
+                      secondaryBackground: _buildSwipeActionRight(),
+                      confirmDismiss: (direction) async {
+                        if (direction == DismissDirection.endToStart) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditSupplierScreen(
+                                supplier: {
+                                  'id': s.supplierId,
+                                  'Nombre': s.supplierName,
+                                  'Telefono': s.phoneNumber,
+                                  'MetodoPago': s.paymentMethod,
+                                  'Direccion': s.address,
+                                  'Categoria': s.category,
+                                },
+                              ),
+                            ),
+                          );
+                          return false;
+                        } else {
+                          final confirm = await showDialog(
+                            context: context,
+                            builder: (_) => DelateAlert(context),
+                          );
+                          if (confirm == true) {
+                            // TODO: llamar endpoint DELETE cuando lo tengas
+                            if (direction == DismissDirection.startToEnd) {
+                              final confirm = await showDialog(
+                                context: context,
+                                builder: (_) => DelateAlert(context),
+                              );
+                              if (confirm == true) {
+                                final ok = await context
+                                    .read<SupplierProvider>()
+                                    .deleteById(s.supplierId);
+                                if (ok) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Proveedor eliminado: ${s.supplierName}')),
+                                  );
+                                }
+                              }
+                              return confirm == true;
+                            }
+                          }
+                          return confirm == true;
+                        }
+                      },
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 30,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              _buildCell(s.supplierId.toString(), flex: 1),
+                              _buildCell(s.supplierName, flex: 2),
+                              _buildCell(s.phoneNumber ?? '', flex: 2),
+                              _buildCell(s.paymentMethod ?? '', flex: 2),
+                              _buildCell(s.address ?? '', flex: 2),
+                              _buildCell(s.category ?? '', flex: 2),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -133,10 +156,12 @@ class ListSupplierScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-
-          Navigator.push(context, MaterialPageRoute(builder: (_) => CreateSupplierScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateSupplierScreen()),
+          );
         },
-        label: const Text('CREAR PROVEEDOR'),
+        label: const Text('+CREAR PROVEEDOR'),
         icon: const Icon(Icons.add),
         backgroundColor: Colors.blueGrey.shade900,
       ),
@@ -190,32 +215,38 @@ class ListSupplierScreen extends StatelessWidget {
       child: const Row(
         children: [
           Expanded(
-              flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
+              flex: 1,
+              child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(
               flex: 2,
-              child: Text('Nombre de Proveedor', style: TextStyle(fontWeight: FontWeight.bold))),
+              child: Text('Nombre de Proveedor',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(
               flex: 3,
-              child: Text('Telefono', style: TextStyle(fontWeight: FontWeight.bold))),
+              child: Text('Telefono',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(
               flex: 2,
-              child: Text('Método de Pago', style: TextStyle(fontWeight: FontWeight.bold))),
+              child: Text('Método de Pago',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(
               flex: 2,
-              child: Text('Dirección', style: TextStyle(fontWeight: FontWeight.bold))),
+              child: Text('Dirección',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(
               flex: 2,
-              child: Text('Categoría', style: TextStyle(fontWeight: FontWeight.bold))),
+              child: Text('Categoría',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
         ],
       ),
     );
   }
 
-  Widget _buildCell(String? text, {required int flex}) {
+  Widget _buildCell(String text, {required int flex}) {
     return Expanded(
       flex: flex,
       child: Text(
-        text ?? '',
+        text,
         overflow: TextOverflow.ellipsis,
         maxLines: 2,
         style: const TextStyle(fontSize: 14),

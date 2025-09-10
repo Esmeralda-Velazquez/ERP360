@@ -1,113 +1,151 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:erpraf/controllers/RolesProvider.dart';
+import 'package:erpraf/models/usersManagment/permission_option.dart';
 
-class CreateRoleScreen extends StatefulWidget {
-  const CreateRoleScreen({super.key});
+class CreateRolesScreen extends StatefulWidget {
+  const CreateRolesScreen({super.key});
 
   @override
-  State<CreateRoleScreen> createState() => _CreateRoleScreenState();
+  State<CreateRolesScreen> createState() => _CreateRolesScreenState();
 }
 
-class _CreateRoleScreenState extends State<CreateRoleScreen> {
-  final _nombreRolCtrl = TextEditingController();
-  bool _statusActivo = true;
+class _CreateRolesScreenState extends State<CreateRolesScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  bool _status = true;
+  final Set<int> _selectedPerms = {};
 
-  final Map<String, bool> _permisosSeleccionados = {
-    'Crear': false,
-    'Editar': false,
-    'Ver': false,
-    'Eliminar': false,
-  };
+  bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<RolesProvider>().fetchPermissions();
+    });
+  }
 
   @override
   void dispose() {
-    _nombreRolCtrl.dispose();
+    _nameCtrl.dispose();
     super.dispose();
   }
 
-  void _guardarRol() {
-    final nombreRol = _nombreRolCtrl.text.trim();
-    if (nombreRol.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, ingresa el nombre del rol')),
-      );
-      return;
+  Future<void> _guardar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    final ok = await context.read<RolesProvider>().createRole(
+      name: _nameCtrl.text.trim(),
+      status: _status,
+      permissionIds: _selectedPerms.toList(),
+    );
+    setState(() => _submitting = false);
+
+    if (!mounted) return;
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rol creado')));
+      Navigator.pop(context, true);
+    } else {
+      final err = context.read<RolesProvider>().error ?? 'No se pudo crear el rol';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     }
-
-    final rolCreado = {
-      'nombreRol': nombreRol,
-      'status': _statusActivo,
-      'permisos': _permisosSeleccionados.entries
-          .where((e) => e.value)
-          .map((e) => e.key)
-          .toList(),
-    };
-
-    print("Nuevo rol creado: $rolCreado");
-    Navigator.pop(context, rolCreado);
   }
 
   @override
   Widget build(BuildContext context) {
+    final prov = context.watch<RolesProvider>();
+    final List<PermissionOption> perms = prov.permissions;
+
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Crear rol'),
         backgroundColor: Colors.blueGrey.shade900,
-        title: const Text("Crear Nuevo Rol"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            TextField(
-              controller: _nombreRolCtrl,
-              decoration: const InputDecoration(
-                labelText: "Nombre del Rol",
-                border: OutlineInputBorder(),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: ListView(
+                    children: [
+                      TextFormField(
+                        controller: _nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre del rol',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.badge_outlined),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        title: const Text('Activo'),
+                        value: _status,
+                        onChanged: (v) => setState(() => _status = v),
+                        secondary: const Icon(Icons.toggle_on_outlined),
+                      ),
+                      const SizedBox(height: 12),
+
+                      const Text('Permisos', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      if (prov.loadingPerms) const LinearProgressIndicator(),
+                      if (prov.permsError != null)
+                        Text(prov.permsError!, style: const TextStyle(color: Colors.red)),
+                      if (!prov.loadingPerms)
+                        ...perms.map((p) => CheckboxListTile(
+                              value: _selectedPerms.contains(p.id),
+                              onChanged: (v) {
+                                setState(() {
+                                  if (v == true) {
+                                    _selectedPerms.add(p.id);
+                                  } else {
+                                    _selectedPerms.remove(p.id);
+                                  }
+                                });
+                              },
+                              title: Text(p.name),
+                              controlAffinity: ListTileControlAffinity.leading,
+                            )),
+
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _submitting ? null : () => Navigator.pop(context, false),
+                              icon: const Icon(Icons.arrow_back),
+                              label: const Text('Cancelar'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blueGrey.shade900,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: _submitting ? null : _guardar,
+                              icon: _submitting
+                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Icon(Icons.save_outlined),
+                              label: Text(_submitting ? 'Guardando...' : 'Crear rol'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 24),
-            SwitchListTile(
-              title: const Text("Estado (Activo/Inactivo)"),
-              value: _statusActivo,
-              onChanged: (value) {
-                setState(() {
-                  _statusActivo = value;
-                });
-              },
-              activeColor: Colors.green,
-              inactiveThumbColor: Colors.red,
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "Permisos:",
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            const SizedBox(height: 8),
-            Column(
-              children: _permisosSeleccionados.entries.map((entry) {
-                return CheckboxListTile(
-                  title: Text(entry.key),
-                  value: entry.value,
-                  onChanged: (value) {
-                    setState(() {
-                      _permisosSeleccionados[entry.key] = value ?? false;
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueGrey.shade900,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              onPressed: _guardarRol,
-              child: const Text(
-                "Crear Rol",
-                style: TextStyle(fontSize: 16),
-              ),
-            )
-          ],
+          ),
         ),
       ),
     );

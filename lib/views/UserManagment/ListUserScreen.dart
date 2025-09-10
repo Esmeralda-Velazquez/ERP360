@@ -1,32 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:erpraf/controllers/UsersProvider.dart';
 import 'package:erpraf/views/UserManagment/EditUserScreen.dart';
 
-class ListUserScreen extends StatelessWidget {
+class ListUserScreen extends StatefulWidget {
   const ListUserScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-final usuarios = [
-  {
-    'id': 1,
-    'nombre': 'Esmeralda',
-    'apellido': 'Velazquez',
-    'email': 'esme@example.com',
-    'area': 'Sistemas',
-    'rol': 'Admin',
-    'permisos': ['Crear usuarios', 'Editar usuarios', 'Ver reportes'],
-  },
-  {
-    'id': 2,
-    'nombre': 'Carlos',
-    'apellido': 'Sánchez',
-    'email': 'carlos@example.com',
-    'area': 'Finanzas',
-    'rol': 'Editor',
-    'permisos': ['Ver reportes'],
-  },
-];
+  State<ListUserScreen> createState() => _ListUserScreenState();
+}
 
+class _ListUserScreenState extends State<ListUserScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<UsersProvider>().fetchAll();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prov = context.watch<UsersProvider>();
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -37,57 +32,103 @@ final usuarios = [
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => context.read<UsersProvider>().fetchAll(),
+          )
+        ],
       ),
       body: Column(
         children: [
           _buildTableHeader(),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(8),
-              itemCount: usuarios.length,
-              itemBuilder: (context, index) {
-                final usuario = usuarios[index];
-                return Dismissible(
-                  key: Key(usuario['id'].toString()),
-                  background: _buildSwipeActionLeft(),
-                  secondaryBackground: _buildSwipeActionRight(),
-                  confirmDismiss: (direction) async {
-                    if (direction == DismissDirection.endToStart) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => EditUserScreen(
-                            usuario: usuario,
-                          ),
-                        ),
-                      );
-                      return false;
-                    } else {
-                      final confirm = await showDialog(
-                        context: context,
-                        builder: (_) => DelateAlert(context),
-                      );
-                      if (confirm == true) {
-                        print('Usuario eliminado: ${usuario['id']}');
-                      }
-                      return confirm == true;
-                    }
-                  },
-                  child: Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 30),
+            child: Builder(
+              builder: (_) {
+                if (prov.loading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (prov.error != null) {
+                  return Center(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                      child: Row(
-                        children: [
-                          _buildCell(usuario['id'].toString(), flex: 1), // Conversión aquí también
-                          _buildCell(usuario['nombre'] as String?, flex: 2),
-                          _buildCell(usuario['area'] as String?, flex: 2),
-                          _buildCell((usuario['permisos'] as List<String>).join(', '), flex: 3),
-                          _buildCell(usuario['rol'] as String?, flex: 2),
-                        ],
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        prov.error!,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
+                  );
+                }
+                final users = prov.items;
+                if (users.isEmpty) {
+                  return const Center(child: Text('No hay usuarios'));
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.all(8),
+                  itemCount: users.length,
+                  itemBuilder: (context, index) {
+                    final u = users[index];
+                    return Dismissible(
+                      key: Key(u.userId.toString()),
+                      background: _buildSwipeActionLeft(),
+                      secondaryBackground: _buildSwipeActionRight(),
+                      confirmDismiss: (direction) async {
+                        if (direction == DismissDirection.endToStart) {
+                          // Editar
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditUserScreen(
+                                usuario: {
+                                  'id': u.userId,
+                                  // separamos nombre en caso de necesitar first/last en tu edit
+                                  'nombre': u.fullName.split(' ').first,
+                                  'apellido': u.fullName.split(' ').skip(1).join(' '),
+                                  'email': u.email,
+                                  'area': u.area ?? '',
+                                  'rol': u.role,
+                                  'permisos': u.permissions,
+                                },
+                              ),
+                            ),
+                          );
+                          return false;
+                        } else {
+                          // Eliminar (cuando tengamos backend)
+                          final confirm = await showDialog(
+                            context: context,
+                            builder: (_) => DelateAlert(context),
+                          );
+                          if (confirm == true) {
+                            final ok = await context.read<UsersProvider>().deleteById(u.userId);
+                            if (ok && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Usuario eliminado: ${u.fullName}')),
+                              );
+                            }
+                          }
+                          return confirm == true;
+                        }
+                      },
+                      child: Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 30),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          child: Row(
+                            children: [
+                              _buildCell(u.userId.toString(), flex: 1),
+                              _buildCell(u.fullName, flex: 2),
+                              _buildCell(u.area ?? '', flex: 2),
+                              _buildCell(u.permissions.join(', '), flex: 3),
+                              _buildCell(u.role, flex: 2),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -99,19 +140,19 @@ final usuarios = [
 
   AlertDialog DelateAlert(BuildContext context) {
     return AlertDialog(
-                        title: const Text('Eliminar usuario'),
-                        content: const Text('¿Estás seguro de eliminar este usuario?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancelar'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      );
+      title: const Text('Eliminar usuario'),
+      content: const Text('¿Estás seguro de eliminar este usuario?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    );
   }
 
   Widget _buildSwipeActionLeft() {
@@ -145,24 +186,22 @@ final usuarios = [
           Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(flex: 2, child: Text('Nombre', style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(flex: 2, child: Text('Área', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(flex: 3, child: Text('Módulos', style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text('Permisos', style: TextStyle(fontWeight: FontWeight.bold))),
           Expanded(flex: 2, child: Text('Rol', style: TextStyle(fontWeight: FontWeight.bold))),
         ],
       ),
     );
   }
 
-
-  Widget _buildCell(String? text, {required int flex}) {
+  Widget _buildCell(String text, {required int flex}) {
     return Expanded(
       flex: flex,
       child: Text(
-        text ?? '',
+        text,
         overflow: TextOverflow.ellipsis,
         maxLines: 2,
         style: const TextStyle(fontSize: 14),
       ),
     );
   }
-
 }
