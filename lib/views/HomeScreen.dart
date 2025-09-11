@@ -5,6 +5,7 @@ import 'package:erpraf/widgets/buttonMenu.dart';
 import 'package:erpraf/views/UserManagment/UserManagmentScreen.dart';
 import 'package:erpraf/views/Proveedores/ListSupplierScreen.dart';
 import 'package:erpraf/views/Inventory/MenuInventoryScreen.dart';
+import 'package:erpraf/views/Sales/MenuSaleScreen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -53,7 +54,12 @@ class HomeScreen extends StatelessWidget {
                 }),
                 const SizedBox(width: 30),
                 buttonMenu('Ventas', Icons.sell_outlined, Colors.purple, () {
-                  print('Ir a Ventas');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const MenuSaleScreen(),
+                    ),
+                  );
                 }),
               ],
             ),

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:erpraf/widgets/buttonMenu.dart';
-import 'package:erpraf/views/Inventory/ListInventoryScreen.dart';
-import 'package:erpraf/views/Inventory/ListMovementsScreen.dart';
+import 'package:erpraf/views/Sales/CreateSaleScreen.dart';
+import 'package:erpraf/views/Sales/ListSalesScreen.dart';
 
-class MenuInventoryScreen extends StatelessWidget {
-  const MenuInventoryScreen({super.key});
+
+class MenuSaleScreen extends StatelessWidget {
+  const MenuSaleScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +13,7 @@ class MenuInventoryScreen extends StatelessWidget {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: Colors.blueGrey.shade900,
-        title: const Text('INVENTARIO'),
+        title: const Text('VENTAS'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -27,23 +28,23 @@ class MenuInventoryScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                buttonMenu('Listado', Icons.people, Colors.blueGrey.shade900,
+                buttonMenu('Nueva venta', Icons.people, Colors.blueGrey.shade900,
                     imageAsset: 'assets/list.png', () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ListInventoryScreen(),
+                      builder: (context) => CreateSaleScreen(),
                     ),
                   );
                 }),
                 const SizedBox(width: 30),
                 buttonMenu(
-                    'Movimientos', Icons.people, Colors.blueGrey.shade900,
+                    'Ventas actuales', Icons.people, Colors.blueGrey.shade900,
                     imageAsset: 'assets/movi.png', () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ListMovementsScreen(),
+                      builder: (context) => ListSalesScreen(),
                     ),
                   );
                 }),

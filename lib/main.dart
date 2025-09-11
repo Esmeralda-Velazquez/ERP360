@@ -4,10 +4,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:erpraf/controllers/AuthProvider.dart';
 import 'package:erpraf/views/LoginScreen.dart';
-import 'package:erpraf/views/HomeScreen.dart'; 
+import 'package:erpraf/views/HomeScreen.dart';
 import 'package:erpraf/controllers/SupplierProvider.dart';
 import 'package:erpraf/controllers/UsersProvider.dart';
 import 'package:erpraf/controllers/RolesProvider.dart';
+import 'package:erpraf/controllers/CustomerProvider.dart';
+import 'package:erpraf/controllers/InventoryProvider.dart';
+import 'package:erpraf/controllers/MovementsProvider.dart';
+import 'package:erpraf/controllers/SalesProvider.dart';
 
 void main() {
   runApp(
@@ -17,6 +21,10 @@ void main() {
         ChangeNotifierProvider(create: (_) => SupplierProvider()),
         ChangeNotifierProvider(create: (_) => UsersProvider()),
         ChangeNotifierProvider(create: (_) => RolesProvider()),
+        ChangeNotifierProvider(create: (_) => CustomerProvider()),
+        ChangeNotifierProvider(create: (_) => InventoryProvider()),
+        ChangeNotifierProvider(create: (_) => MovementsProvider()),
+        ChangeNotifierProvider(create: (_) => SalesProvider()),
       ],
       child: const MyApp(),
     ),
@@ -48,7 +56,8 @@ class SessionChecker extends StatefulWidget {
 }
 
 class _SessionCheckerState extends State<SessionChecker> {
-  late Widget _screen = const Scaffold(body: Center(child: CircularProgressIndicator()));
+  late Widget _screen =
+      const Scaffold(body: Center(child: CircularProgressIndicator()));
 
   @override
   void initState() {
