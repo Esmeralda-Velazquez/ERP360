@@ -32,7 +32,7 @@ class MenuInventoryScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ListInventoryScreen(),
+                      builder: (context) => const ListInventoryScreen(),
                     ),
                   );
                 }),
@@ -43,7 +43,7 @@ class MenuInventoryScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ListMovementsScreen(),
+                      builder: (context) => const ListMovementsScreen(),
                     ),
                   );
                 }),

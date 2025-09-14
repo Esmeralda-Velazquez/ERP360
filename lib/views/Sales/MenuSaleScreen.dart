@@ -33,7 +33,7 @@ class MenuSaleScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => CreateSaleScreen(),
+                      builder: (context) => const CreateSaleScreen(),
                     ),
                   );
                 }),
@@ -44,7 +44,7 @@ class MenuSaleScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => ListSalesScreen(),
+                      builder: (context) => const ListSalesScreen(),
                     ),
                   );
                 }),

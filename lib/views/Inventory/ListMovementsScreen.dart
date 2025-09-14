@@ -51,7 +51,11 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
     );
     if (picked != null) {
       setState(() {
-        if (from) _from = picked; else _to = picked;
+        if (from) {
+          _from = picked;
+        } else {
+          _to = picked;
+        }
       });
     }
   }
@@ -184,7 +188,7 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
         label: const Text('Registrar movimiento'),
         onPressed: () {
           // Aquí luego conectamos la pantalla para crear IN/OUT/ADJ
-           Navigator.push(context, MaterialPageRoute(builder: (_) => CreateMovementScreen()));
+           Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateMovementScreen()));
         },
       ),
     );
@@ -257,12 +261,12 @@ class _Filters extends StatelessWidget {
             child: TextField(
               readOnly: true,
               onTap: () => pickDate(from: true),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Desde',
                 hintText: 'yyyy-MM-dd',
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(),
                 isDense: true,
-                suffixIcon: const Icon(Icons.date_range),
+                suffixIcon: Icon(Icons.date_range),
               ),
               controller: TextEditingController(text: fmt(from)),
             ),
@@ -272,12 +276,12 @@ class _Filters extends StatelessWidget {
             child: TextField(
               readOnly: true,
               onTap: () => pickDate(from: false),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: 'Hasta',
                 hintText: 'yyyy-MM-dd',
-                border: const OutlineInputBorder(),
+                border: OutlineInputBorder(),
                 isDense: true,
-                suffixIcon: const Icon(Icons.date_range),
+                suffixIcon: Icon(Icons.date_range),
               ),
               controller: TextEditingController(text: fmt(to)),
             ),

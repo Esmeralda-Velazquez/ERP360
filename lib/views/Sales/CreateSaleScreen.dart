@@ -59,9 +59,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_didInit) {
-      if (_selectedPayment == null) {
-        _selectedPayment = _paymentMethods.first;
-      }
+      _selectedPayment ??= _paymentMethods.first;
       invProv = context.read<InventoryProvider>();
       salesProv = context.read<SalesProvider>();
       custProv = context.read<CustomerProvider>();

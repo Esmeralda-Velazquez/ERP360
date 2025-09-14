@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/RolesProvider.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
 class EditRolesScreen extends StatefulWidget {
   final Map<String, dynamic> roles; // {id, nombreRol, status, permisos}
@@ -20,17 +21,21 @@ class _EditRolesScreenState extends State<EditRolesScreen> {
   @override
   void initState() {
     super.initState();
-    _nameCtrl = TextEditingController(text: (widget.roles['nombreRol'] ?? '').toString());
+    _nameCtrl = TextEditingController(
+        text: (widget.roles['nombreRol'] ?? '').toString());
     _status = (widget.roles['status'] == true);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final prov = context.read<RolesProvider>();
       await prov.fetchPermissions();
 
-      // mapear permisos por nombre -> id
-      final List<String> currentNames = (widget.roles['permisos'] as List<dynamic>? ?? []).map((e) => e.toString()).toList();
+      final List<String> currentNames =
+          (widget.roles['permisos'] as List<dynamic>? ?? [])
+              .map((e) => e.toString())
+              .toList();
       final ids = prov.permissions
-          .where((p) => currentNames.any((n) => n.toLowerCase() == p.name.toLowerCase()))
+          .where((p) =>
+              currentNames.any((n) => n.toLowerCase() == p.name.toLowerCase()))
           .map((p) => p.id);
       setState(() => _selectedPerms.addAll(ids));
     });
@@ -46,20 +51,31 @@ class _EditRolesScreenState extends State<EditRolesScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     final ok = await context.read<RolesProvider>().updateRole(
-      id: int.parse(widget.roles['id'].toString()),
-      name: _nameCtrl.text.trim(),
-      status: _status,
-      permissionIds: _selectedPerms.toList(),
-    );
+          id: int.parse(widget.roles['id'].toString()),
+          name: _nameCtrl.text.trim(),
+          status: _status,
+          permissionIds: _selectedPerms.toList(),
+        );
     setState(() => _submitting = false);
 
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rol actualizado')));
+      AppSnackBar.show(
+        context,
+        type: SnackType.success,
+        title: 'Exito',
+        message: 'Rol actualizado',
+      );
       Navigator.pop(context, true);
     } else {
-      final err = context.read<RolesProvider>().error ?? 'No se pudo actualizar el rol';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      final err =
+          context.read<RolesProvider>().error ?? 'No se pudo actualizar el rol';
+      AppSnackBar.show(
+        context,
+        type: SnackType.error,
+        title: 'Error',
+        message: err,
+      );
     }
   }
 
@@ -79,7 +95,8 @@ class _EditRolesScreenState extends State<EditRolesScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Form(
@@ -93,8 +110,11 @@ class _EditRolesScreenState extends State<EditRolesScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.badge_outlined),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
                       ),
+                      /*
                       const SizedBox(height: 12),
                       SwitchListTile(
                         title: const Text('Activo'),
@@ -103,31 +123,37 @@ class _EditRolesScreenState extends State<EditRolesScreen> {
                         secondary: const Icon(Icons.toggle_on_outlined),
                       ),
                       const SizedBox(height: 12),
-
-                      const Text('Permisos', style: TextStyle(fontWeight: FontWeight.bold)),
+*/
+                      const Text('Permisos',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       if (prov.loadingPerms) const LinearProgressIndicator(),
                       if (prov.permsError != null)
-                        Text(prov.permsError!, style: const TextStyle(color: Colors.red)),
+                        Text(prov.permsError!,
+                            style: const TextStyle(color: Colors.red)),
                       if (!prov.loadingPerms)
                         ...perms.map((p) => CheckboxListTile(
                               value: _selectedPerms.contains(p.id),
                               onChanged: (v) {
                                 setState(() {
-                                  if (v == true) { _selectedPerms.add(p.id); }
-                                  else { _selectedPerms.remove(p.id); }
+                                  if (v == true) {
+                                    _selectedPerms.add(p.id);
+                                  } else {
+                                    _selectedPerms.remove(p.id);
+                                  }
                                 });
                               },
                               title: Text(p.name),
                               controlAffinity: ListTileControlAffinity.leading,
                             )),
-
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: _submitting ? null : () => Navigator.pop(context, false),
+                              onPressed: _submitting
+                                  ? null
+                                  : () => Navigator.pop(context, false),
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Cancelar'),
                             ),
@@ -137,13 +163,20 @@ class _EditRolesScreenState extends State<EditRolesScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueGrey.shade900,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _submitting ? null : _guardar,
                               icon: _submitting
-                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white))
                                   : const Icon(Icons.save_outlined),
-                              label: Text(_submitting ? 'Guardando...' : 'Guardar cambios'),
+                              label: Text(_submitting
+                                  ? 'Guardando...'
+                                  : 'Guardar cambios'),
                             ),
                           ),
                         ],

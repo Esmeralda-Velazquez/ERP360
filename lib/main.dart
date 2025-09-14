@@ -47,7 +47,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// 🔍 Verifica si hay sesión activa
 class SessionChecker extends StatefulWidget {
   const SessionChecker({super.key});
 

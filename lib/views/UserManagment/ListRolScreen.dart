@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/RolesProvider.dart';
 import 'package:erpraf/views/UserManagment/EditRolesScreen.dart';
 import 'package:erpraf/views/UserManagment/CreateRolesScreen.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
 class ListRolScreen extends StatefulWidget {
   const ListRolScreen({super.key});
@@ -13,6 +15,7 @@ class ListRolScreen extends StatefulWidget {
 
 class _ListRolScreenState extends State<ListRolScreen> {
   final _searchCtrl = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -20,12 +23,24 @@ class _ListRolScreenState extends State<ListRolScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RolesProvider>().fetchAll();
     });
+    _searchCtrl.addListener(() {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onTypeSearch(String term) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      context.read<RolesProvider>().fetchAll(q: term);
+    });
   }
 
   @override
@@ -44,7 +59,8 @@ class _ListRolScreenState extends State<ListRolScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => context.read<RolesProvider>().fetchAll(q: _searchCtrl.text),
+            onPressed: () =>
+                context.read<RolesProvider>().fetchAll(q: _searchCtrl.text),
           )
         ],
       ),
@@ -53,19 +69,27 @@ class _ListRolScreenState extends State<ListRolScreen> {
           _buildSearchBar(
             controller: _searchCtrl,
             onSearch: (term) => context.read<RolesProvider>().fetchAll(q: term),
-            onClear: () { _searchCtrl.clear(); context.read<RolesProvider>().fetchAll(); },
+            onClear: () {
+              _searchCtrl.clear();
+              _onTypeSearch('');
+            },
           ),
           _buildTableHeader(),
           Expanded(
             child: prov.loading
                 ? const Center(child: CircularProgressIndicator())
                 : prov.error != null
-                    ? Center(child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(prov.error!, style: const TextStyle(color: Colors.red)),
-                    ))
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(prov.error!,
+                              style: const TextStyle(color: Colors.red)),
+                        ),
+                      )
                     : RefreshIndicator(
-                        onRefresh: () => context.read<RolesProvider>().fetchAll(q: _searchCtrl.text),
+                        onRefresh: () => context
+                            .read<RolesProvider>()
+                            .fetchAll(q: _searchCtrl.text),
                         child: ListView.builder(
                           padding: const EdgeInsets.all(8),
                           itemCount: prov.items.length,
@@ -77,7 +101,6 @@ class _ListRolScreenState extends State<ListRolScreen> {
                               secondaryBackground: _buildSwipeActionRight(),
                               confirmDismiss: (direction) async {
                                 if (direction == DismissDirection.endToStart) {
-                                  // Editar
                                   await Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -85,7 +108,6 @@ class _ListRolScreenState extends State<ListRolScreen> {
                                         roles: {
                                           'id': r.id,
                                           'nombreRol': r.name,
-                                          'status': r.status,
                                           'permisos': r.permissions,
                                         },
                                       ),
@@ -99,10 +121,15 @@ class _ListRolScreenState extends State<ListRolScreen> {
                                     builder: (_) => DelateAlert(context),
                                   );
                                   if (confirm == true) {
-                                    final ok = await context.read<RolesProvider>().deleteById(r.id);
+                                    final ok = await context
+                                        .read<RolesProvider>()
+                                        .deleteById(r.id);
                                     if (ok && mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Rol eliminado: ${r.name}')),
+                                      AppSnackBar.show(
+                                        context,
+                                        type: SnackType.success,
+                                        title: 'Exito',
+                                        message: 'Rol eliminado: ${r.name}o',
                                       );
                                       return true;
                                     }
@@ -111,29 +138,17 @@ class _ListRolScreenState extends State<ListRolScreen> {
                                 }
                               },
                               child: Card(
-                                margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 30),
+                                margin: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 30),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 12, horizontal: 8),
                                   child: Row(
                                     children: [
                                       _buildCell(r.id.toString(), flex: 1),
                                       _buildCell(r.name, flex: 2),
-                                      _buildCell(r.permissions.join(', '), flex: 3),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Align(
-                                          alignment: Alignment.centerLeft,
-                                          child: Chip(
-                                            label: Text(
-                                              r.status ? 'Activo' : 'Inactivo',
-                                              style: const TextStyle(color: Colors.white),
-                                            ),
-                                            backgroundColor: r.status ? Colors.green : Colors.red,
-                                            visualDensity: VisualDensity.compact,
-                                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                                          ),
-                                        ),
-                                      ),
+                                      _buildCell(r.permissions.join(', '),
+                                          flex: 3),
                                     ],
                                   ),
                                 ),
@@ -149,13 +164,13 @@ class _ListRolScreenState extends State<ListRolScreen> {
         onPressed: () async {
           final created = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) =>  CreateRolesScreen()),
+            MaterialPageRoute(builder: (_) => const CreateRolesScreen()),
           );
           if (created == true && mounted) {
             context.read<RolesProvider>().fetchAll(q: _searchCtrl.text);
           }
         },
-        label: const Text('+ CREAR ROL'),
+        label: const Text('CREAR ROL'),
         icon: const Icon(Icons.add),
         backgroundColor: Colors.blueGrey.shade900,
       ),
@@ -175,15 +190,20 @@ class _ListRolScreenState extends State<ListRolScreen> {
       child: TextField(
         controller: controller,
         textInputAction: TextInputAction.search,
-        onSubmitted: onSearch,
+        onSubmitted: onSearch, // Enter/buscar
+        onChanged: _onTypeSearch, // Live search con debounce
         decoration: InputDecoration(
-          hintText: 'Buscar por nombre o permiso…',
+          hintText: 'Buscar por nombre',
           prefixIcon: const Icon(Icons.search),
           suffixIcon: controller.text.isEmpty
               ? null
-              : IconButton(icon: const Icon(Icons.clear), onPressed: onClear),
+              : IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: onClear,
+                ),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
           filled: true,
           fillColor: Colors.white,
         ),
@@ -236,10 +256,17 @@ class _ListRolScreenState extends State<ListRolScreen> {
       ),
       child: const Row(
         children: [
-          Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('Nombre de Rol', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(flex: 3, child: Text('Permisos', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(flex: 2, child: Text('Estatus', style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(
+              flex: 1,
+              child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(
+              flex: 2,
+              child: Text('Nombre de Rol',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(
+              flex: 3,
+              child: Text('Permisos',
+                  style: TextStyle(fontWeight: FontWeight.bold))),
         ],
       ),
     );

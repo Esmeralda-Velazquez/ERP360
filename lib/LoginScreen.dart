@@ -43,7 +43,7 @@ class LoginScreen extends StatelessWidget {
                 'assets/avatar.png'), // Asegúrate de tener esta imagen
           ),
           const SizedBox(height: 30),
-          TextField(
+          const TextField(
             decoration: InputDecoration(
               labelText: 'Ingresa tu nombre de usuario',
               border: OutlineInputBorder(),
@@ -51,7 +51,7 @@ class LoginScreen extends StatelessWidget {
             ),
           ), 
           const SizedBox(height: 20),
-          TextField(
+          const TextField(
             obscureText: true,
             decoration: InputDecoration(
               labelText: 'Ingresa tu contraseña',

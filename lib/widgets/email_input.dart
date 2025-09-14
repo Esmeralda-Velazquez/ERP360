@@ -52,7 +52,7 @@ class EmailInput extends StatelessWidget {
         hintText: hintText ?? 'ejemplo@correo.com',
         prefixIcon: Icon(icon, color: theme.colorScheme.primary),
         filled: true,
-        fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.2),
+        fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.2),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
         ),

@@ -13,7 +13,7 @@ class CreateRolesScreen extends StatefulWidget {
 class _CreateRolesScreenState extends State<CreateRolesScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  bool _status = true;
+  final bool _status = true;
   final Set<int> _selectedPerms = {};
 
   bool _submitting = false;
@@ -36,18 +36,20 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     final ok = await context.read<RolesProvider>().createRole(
-      name: _nameCtrl.text.trim(),
-      status: _status,
-      permissionIds: _selectedPerms.toList(),
-    );
+          name: _nameCtrl.text.trim(),
+          status: _status,
+          permissionIds: _selectedPerms.toList(),
+        );
     setState(() => _submitting = false);
 
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Rol creado')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Rol creado')));
       Navigator.pop(context, true);
     } else {
-      final err = context.read<RolesProvider>().error ?? 'No se pudo crear el rol';
+      final err =
+          context.read<RolesProvider>().error ?? 'No se pudo crear el rol';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     }
   }
@@ -68,7 +70,8 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Form(
@@ -82,9 +85,12 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.badge_outlined),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Requerido'
+                            : null,
                       ),
                       const SizedBox(height: 12),
+                      /*
                       SwitchListTile(
                         title: const Text('Activo'),
                         value: _status,
@@ -92,12 +98,14 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
                         secondary: const Icon(Icons.toggle_on_outlined),
                       ),
                       const SizedBox(height: 12),
-
-                      const Text('Permisos', style: TextStyle(fontWeight: FontWeight.bold)),
+*/
+                      const Text('Permisos',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       if (prov.loadingPerms) const LinearProgressIndicator(),
                       if (prov.permsError != null)
-                        Text(prov.permsError!, style: const TextStyle(color: Colors.red)),
+                        Text(prov.permsError!,
+                            style: const TextStyle(color: Colors.red)),
                       if (!prov.loadingPerms)
                         ...perms.map((p) => CheckboxListTile(
                               value: _selectedPerms.contains(p.id),
@@ -113,13 +121,14 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
                               title: Text(p.name),
                               controlAffinity: ListTileControlAffinity.leading,
                             )),
-
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: _submitting ? null : () => Navigator.pop(context, false),
+                              onPressed: _submitting
+                                  ? null
+                                  : () => Navigator.pop(context, false),
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Cancelar'),
                             ),
@@ -129,13 +138,19 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.blueGrey.shade900,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _submitting ? null : _guardar,
                               icon: _submitting
-                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white))
                                   : const Icon(Icons.save_outlined),
-                              label: Text(_submitting ? 'Guardando...' : 'Crear rol'),
+                              label: Text(
+                                  _submitting ? 'Guardando...' : 'Crear rol'),
                             ),
                           ),
                         ],

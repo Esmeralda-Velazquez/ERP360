@@ -91,12 +91,12 @@ class UserManagmentScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Cerrar sesión"),
-        content: Text("¿Estás segura de que deseas cerrar sesión?"),
+        title: const Text("Cerrar sesión"),
+        content: const Text("¿Estás segura de que deseas cerrar sesión?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancelar"),
+            child: const Text("Cancelar"),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -109,10 +109,10 @@ class UserManagmentScreen extends StatelessWidget {
                 (route) => false,
               );
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Sesión cerrada")),
+                const SnackBar(content: Text("Sesión cerrada")),
               );
             },
-            child: Text("Cerrar sesión"),
+            child: const Text("Cerrar sesión"),
           ),
         ],
       ),

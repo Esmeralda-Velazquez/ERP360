@@ -2,7 +2,7 @@ class UserListItem {
   final int userId;
   final String fullName;
   final String? area;
-  final bool status;
+  final bool status; 
   final String email;
   final String role;
   final List<String> permissions;
@@ -10,22 +10,45 @@ class UserListItem {
   UserListItem({
     required this.userId,
     required this.fullName,
-    this.area,
-    required this.status,
     required this.email,
     required this.role,
-    required this.permissions,
-  });
+    required this.status,
+    this.area,
+    List<String>? permissions,
+  }) : permissions = permissions ?? const [];
 
-  factory UserListItem.fromJson(Map<String, dynamic> j) => UserListItem(
-        userId: j['userId'] as int,
-        fullName: j['fullName'] as String? ?? '',
-        area: j['area'] as String?,
-        status: j['status'] as bool? ?? true,
-        email: j['email'] as String? ?? '',
-        role: j['role'] as String? ?? '',
-        permissions: (j['permissions'] as List<dynamic>? ?? [])
-            .map((e) => e.toString())
-            .toList(),
-      );
+  factory UserListItem.fromJson(Map<String, dynamic> j) {
+    return UserListItem(
+      userId: (j['userId'] ?? j['UserId']) as int,
+      fullName: (j['fullName'] ?? j['FullName'] ?? '').toString(),
+      area: (j['area'] ?? j['Area'])?.toString(),
+      status: (j['status'] ?? j['Status'] ?? false) as bool,
+      email: (j['email'] ?? j['Email'] ?? '').toString(),
+      role: (j['role'] ?? j['Role'] ?? '').toString(),
+      permissions: ((j['permissions'] ?? j['Permissions']) as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+    );
+  }
+
+  UserListItem copyWith({
+    int? userId,
+    String? fullName,
+    String? area,
+    bool? status,
+    String? email,
+    String? role,
+    List<String>? permissions,
+  }) {
+    return UserListItem(
+      userId: userId ?? this.userId,
+      fullName: fullName ?? this.fullName,
+      area: area ?? this.area,
+      status: status ?? this.status,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      permissions: permissions ?? this.permissions,
+    );
+  }
 }

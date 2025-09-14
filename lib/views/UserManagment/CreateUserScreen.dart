@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/UsersProvider.dart';
-import 'package:erpraf/models/usersManagment/roleOption.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
+import 'package:erpraf/widgets/email_input.dart';
+import 'package:erpraf/widgets/app_dropdown.dart';
+import 'package:erpraf/widgets/PasswordFile.dart';
 
 class CreateUserScreen extends StatefulWidget {
   const CreateUserScreen({super.key});
@@ -15,11 +18,11 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _firstNameCtrl = TextEditingController();
-  final _lastNameCtrl  = TextEditingController();
-  final _emailCtrl     = TextEditingController();
-  final _areaCtrl      = TextEditingController();
-  final _passwordCtrl  = TextEditingController();
-  final _confirmCtrl   = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _areaCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
   bool _status = true;
   int? _roleId;
@@ -45,28 +48,44 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
   }
 
   Future<void> _guardar() async {
-    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      AppSnackBar.show(
+        context,
+        type: SnackType.info,
+        message: "Revisa los campos en rojo",
+      );
+      return;
+    }
+
     if (_roleId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona un rol')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.warning,
+        title: "Atención",
+        message: "Selecciona un rol",
       );
       return;
     }
     if (_passwordCtrl.text != _confirmCtrl.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Las contraseñas no coinciden')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.warning,
+        title: "Atención",
+        message: "Las contraseñas no coinciden",
       );
       return;
     }
 
     final payload = {
       "firstName": _firstNameCtrl.text.trim(),
-      "lastName":  _lastNameCtrl.text.trim(),
-      "email":     _emailCtrl.text.trim(),
-      "area":      _areaCtrl.text.trim().isEmpty ? null : _areaCtrl.text.trim(),
-      "status":    _status,
-      "roleId":    _roleId,
-      "password":  _passwordCtrl.text, // en backend: hashear
+      "lastName": _lastNameCtrl.text.trim(),
+      "email": _emailCtrl.text.trim(),
+      "area": _areaCtrl.text.trim().isEmpty ? null : _areaCtrl.text.trim(),
+      "status": _status,
+      "roleId": _roleId,
+      "password": _passwordCtrl.text,
     };
 
     setState(() => _submitting = true);
@@ -75,12 +94,22 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
 
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Usuario creado')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.success,
+        title: "¡Éxito!",
+        message: "Usuario creado",
       );
       Navigator.pop(context, true);
     } else {
-      final err = context.read<UsersProvider>().error ?? 'No se pudo crear el usuario';
+      final err =
+          context.read<UsersProvider>().error ?? 'No se pudo crear el usuario';
+      AppSnackBar.show(
+        context,
+        type: SnackType.error,
+        title: "Algo salió mal contacta al administrador",
+        message: err,
+      );
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
     }
   }
@@ -91,7 +120,8 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
     final prov = context.watch<UsersProvider>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Crear usuario'), backgroundColor: primary),
+      appBar:
+          AppBar(title: const Text('Crear usuario'), backgroundColor: primary),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
@@ -99,16 +129,18 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
             padding: const EdgeInsets.all(16),
             child: Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Form(
                   key: _formKey,
                   child: ListView(
                     children: [
-                      const Text('Datos generales', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Text('Datos generales',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
-
                       Row(
                         children: [
                           Expanded(
@@ -119,7 +151,9 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.person_outline),
                               ),
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Requerido'
+                                  : null,
                               textInputAction: TextInputAction.next,
                             ),
                           ),
@@ -132,30 +166,21 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.person_outline),
                               ),
-                              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requerido' : null,
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Requerido'
+                                  : null,
                               textInputAction: TextInputAction.next,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-
-                      TextFormField(
+                      EmailInput(
                         controller: _emailCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Requerido';
-                          if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(v.trim())) return 'Email inválido';
-                          return null;
-                        },
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        onChanged: (val) => debugPrint("Escribiendo: $val"),
                       ),
                       const SizedBox(height: 12),
-
                       TextFormField(
                         controller: _areaCtrl,
                         decoration: const InputDecoration(
@@ -163,83 +188,65 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.apartment_outlined),
                         ),
-                        inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'^\s'))],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.deny(RegExp(r'^\s'))
+                        ],
                       ),
                       const SizedBox(height: 12),
-
-                      InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Rol',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.security_outlined),
-                        ),
-                        child: prov.loadingRoles
-                            ? const LinearProgressIndicator()
-                            : DropdownButtonFormField<int>(
-                                isExpanded: true,
-                                value: _roleId,
-                                decoration: const InputDecoration.collapsed(hintText: ''),
-                                items: prov.roles
-                                    .map((r) => DropdownMenuItem<int>(value: r.id, child: Text(r.name)))
-                                    .toList(),
-                                onChanged: (v) => setState(() => _roleId = v),
-                                validator: (v) => v == null ? 'Selecciona un rol' : null,
-                              ),
-                      ),
+                      prov.loadingRoles
+                          ? const LinearProgressIndicator()
+                          : AppDropdown<int>(
+                              items: prov.roles.map((r) => r.id).toList(),
+                              itemLabel: (id) =>
+                                  prov.roles.firstWhere((r) => r.id == id).name,
+                              value: _roleId,
+                              labelText: 'Rol',
+                              hintText: 'Selecciona un rol',
+                              prefixIcon: Icons.security_outlined,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                              validator: (v) =>
+                                  v == null ? 'Selecciona un rol' : null,
+                              onChanged: (v) => setState(() => _roleId = v),
+                            ),
                       if (prov.rolesError != null) ...[
                         const SizedBox(height: 8),
-                        Text(prov.rolesError!, style: const TextStyle(color: Colors.red)),
+                        Text(prov.rolesError!,
+                            style: const TextStyle(color: Colors.red)),
                       ],
                       const SizedBox(height: 12),
-
-                      const Text('Seguridad', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Seguridad',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-
-                      TextFormField(
+                      PasswordField(
                         controller: _passwordCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Contraseña',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock_outline),
-                        ),
-                        obscureText: true,
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Requerido';
-                          if (v.length < 6) return 'Mínimo 6 caracteres';
-                          return null;
-                        },
+                        minLength: 14,
+                        requireSpecial: true,
+                        requireUpper: true,
+                        requireLower: true,
+                        requireDigit: true,
                       ),
                       const SizedBox(height: 12),
-
-                      TextFormField(
+                      PasswordField(
                         controller: _confirmCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Confirmar contraseña',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock_outline),
-                        ),
-                        obscureText: true,
-                        validator: (v) {
-                          if (v == null || v.isEmpty) return 'Requerido';
-                          if (v != _passwordCtrl.text) return 'No coincide con la contraseña';
-                          return null;
-                        },
+                        showPolicyHelper: false,
                       ),
-                      const SizedBox(height: 12),
 
+                      const SizedBox(height: 12),
                       SwitchListTile(
                         title: const Text('Activo'),
                         value: _status,
                         onChanged: (v) => setState(() => _status = v),
                         secondary: const Icon(Icons.toggle_on_outlined),
                       ),
-
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: _submitting ? null : () => Navigator.pop(context, false),
+                              onPressed: _submitting
+                                  ? null
+                                  : () => Navigator.pop(context, false),
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Cancelar'),
                             ),
@@ -249,16 +256,21 @@ class _CreateUserScreenState extends State<CreateUserScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primary,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _submitting ? null : _guardar,
                               icon: _submitting
                                   ? const SizedBox(
-                                      width: 18, height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
                                     )
                                   : const Icon(Icons.save_outlined),
-                              label: Text(_submitting ? 'Guardando...' : 'Crear usuario'),
+                              label: Text(_submitting
+                                  ? 'Guardando...'
+                                  : 'Crear usuario'),
                             ),
                           ),
                         ],
