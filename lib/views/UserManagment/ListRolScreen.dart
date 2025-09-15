@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:erpraf/controllers/RolesProvider.dart';
 import 'package:erpraf/views/UserManagment/EditRolesScreen.dart';
 import 'package:erpraf/views/UserManagment/CreateRolesScreen.dart';
-import 'package:erpraf/widgets/app_snackbar.dart';
 
 class ListRolScreen extends StatefulWidget {
   const ListRolScreen({super.key});
@@ -17,15 +17,25 @@ class _ListRolScreenState extends State<ListRolScreen> {
   final _searchCtrl = TextEditingController();
   Timer? _debounce;
 
+  late RolesProvider _roles;           
+  late ScaffoldMessengerState _messenger; 
+  late ThemeData _theme;                 
+  bool _didInit = false;                
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RolesProvider>().fetchAll();
-    });
-    _searchCtrl.addListener(() {
-      if (mounted) setState(() {});
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _roles = context.read<RolesProvider>();
+
+    _messenger = ScaffoldMessenger.maybeOf(context) ?? ScaffoldMessenger.of(context);
+    _theme = Theme.of(context);
+
+    if (!_didInit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _roles.fetchAll();
+      });
+      _didInit = true;
+    }
   }
 
   @override
@@ -39,8 +49,60 @@ class _ListRolScreenState extends State<ListRolScreen> {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
-      context.read<RolesProvider>().fetchAll(q: term);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _roles.fetchAll(q: term);
+      });
     });
+  }
+
+  void _showSuccess(String msg, {String? title}) {
+    final snack = SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.green.shade700,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      content: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_rounded, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title == null ? msg : '$title\n$msg',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    _messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snack);
+  }
+
+  void _showError(String msg, {String? title}) {
+    final snack = SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: Colors.red.shade700,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      content: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_rounded, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              title == null ? msg : '$title\n$msg',
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    _messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snack);
   }
 
   @override
@@ -59,16 +121,15 @@ class _ListRolScreenState extends State<ListRolScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                context.read<RolesProvider>().fetchAll(q: _searchCtrl.text),
-          )
+            onPressed: () => _roles.fetchAll(q: _searchCtrl.text),
+          ),
         ],
       ),
       body: Column(
         children: [
           _buildSearchBar(
             controller: _searchCtrl,
-            onSearch: (term) => context.read<RolesProvider>().fetchAll(q: term),
+            onSearch: (term) => _roles.fetchAll(q: term),
             onClear: () {
               _searchCtrl.clear();
               _onTypeSearch('');
@@ -82,14 +143,14 @@ class _ListRolScreenState extends State<ListRolScreen> {
                     ? Center(
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Text(prov.error!,
-                              style: const TextStyle(color: Colors.red)),
+                          child: Text(
+                            prov.error!,
+                            style: const TextStyle(color: Colors.red),
+                          ),
                         ),
                       )
                     : RefreshIndicator(
-                        onRefresh: () => context
-                            .read<RolesProvider>()
-                            .fetchAll(q: _searchCtrl.text),
+                        onRefresh: () => _roles.fetchAll(q: _searchCtrl.text),
                         child: ListView.builder(
                           padding: const EdgeInsets.all(8),
                           itemCount: prov.items.length,
@@ -114,28 +175,80 @@ class _ListRolScreenState extends State<ListRolScreen> {
                                     ),
                                   );
                                   return false;
-                                } else {
-                                  // Eliminar
-                                  final confirm = await showDialog(
+                                }
+
+                                // Eliminar (swipe izq→der)
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) => DelateAlert(context),
+                                );
+                                if (confirm != true) return false;
+
+                                final result = await _roles.deleteById(r.id);
+
+                                // Resultado (DeleteResult)
+                                if (result.success) {
+                                  // Programar snackbar en siguiente frame y usar messenger cacheado
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (!mounted) return;
+                                    _showSuccess('Rol eliminado: ${r.name}', title: 'Éxito');
+                                  });
+                                  return true; // permite que Dismissible quite el item
+                                }
+
+                                if (result.conflict == true) {
+                                  final action = await showDialog<_ConflictAction>(
                                     context: context,
-                                    builder: (_) => DelateAlert(context),
+                                    builder: (_) => _RoleInUseDialog(
+                                      roleName: r.name,
+                                      userCount: result.userCount ?? 0,
+                                    ),
                                   );
-                                  if (confirm == true) {
-                                    final ok = await context
-                                        .read<RolesProvider>()
-                                        .deleteById(r.id);
-                                    if (ok && mounted) {
-                                      AppSnackBar.show(
-                                        context,
-                                        type: SnackType.success,
-                                        title: 'Exito',
-                                        message: 'Rol eliminado: ${r.name}o',
+
+                                  if (action == _ConflictAction.viewUsers) {
+                                    // TODO: navegar a pantalla de usuarios por rol
+                                  } else if (action == _ConflictAction.reassign) {
+                                    final newRoleId = await showDialog<int>(
+                                      context: context,
+                                      builder: (_) => _ReassignDialog(oldRoleId: r.id),
+                                    );
+                                    if (newRoleId != null) {
+                                      final ok = await _roles.reassignAndDelete(
+                                        oldRoleId: r.id,
+                                        newRoleId: newRoleId,
                                       );
-                                      return true;
+                                      if (ok && mounted) {
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (!mounted) return;
+                                          _showSuccess(
+                                            'Usuarios reasignados y rol eliminado',
+                                            title: 'Éxito',
+                                          );
+                                        });
+                                        await _roles.fetchAll(q: _searchCtrl.text);
+                                      } else {
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          if (!mounted) return;
+                                          _showError(
+                                            'No se pudo reasignar/eliminar el rol.',
+                                            title: 'Error',
+                                          );
+                                        });
+                                      }
                                     }
                                   }
                                   return false;
                                 }
+
+                                // Error genérico
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  if (!mounted) return;
+                                  _showError(
+                                    result.message ?? 'No se pudo eliminar el rol.',
+                                    title: 'Error',
+                                  );
+                                });
+                                return false;
                               },
                               child: Card(
                                 margin: const EdgeInsets.symmetric(
@@ -147,8 +260,7 @@ class _ListRolScreenState extends State<ListRolScreen> {
                                     children: [
                                       _buildCell(r.id.toString(), flex: 1),
                                       _buildCell(r.name, flex: 2),
-                                      _buildCell(r.permissions.join(', '),
-                                          flex: 3),
+                                      _buildCell(r.permissions.join(', '), flex: 3),
                                     ],
                                   ),
                                 ),
@@ -166,8 +278,9 @@ class _ListRolScreenState extends State<ListRolScreen> {
             context,
             MaterialPageRoute(builder: (_) => const CreateRolesScreen()),
           );
-          if (created == true && mounted) {
-            context.read<RolesProvider>().fetchAll(q: _searchCtrl.text);
+          if (!mounted) return;
+          if (created == true) {
+            _roles.fetchAll(q: _searchCtrl.text);
           }
         },
         label: const Text('CREAR ROL'),
@@ -187,26 +300,28 @@ class _ListRolScreenState extends State<ListRolScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(30, 12, 30, 6),
-      child: TextField(
-        controller: controller,
-        textInputAction: TextInputAction.search,
-        onSubmitted: onSearch, // Enter/buscar
-        onChanged: _onTypeSearch, // Live search con debounce
-        decoration: InputDecoration(
-          hintText: 'Buscar por nombre',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: controller.text.isEmpty
-              ? null
-              : IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: onClear,
-                ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
-          filled: true,
-          fillColor: Colors.white,
-        ),
+      child: ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          return TextField(
+            controller: controller,
+            textInputAction: TextInputAction.search,
+            onSubmitted: onSearch,
+            onChanged: _onTypeSearch,
+            decoration: InputDecoration(
+              hintText: 'Buscar por nombre',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: value.text.isEmpty
+                  ? null
+                  : IconButton(icon: const Icon(Icons.clear), onPressed: onClear),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+          );
+        },
       ),
     );
   }
@@ -256,17 +371,9 @@ class _ListRolScreenState extends State<ListRolScreen> {
       ),
       child: const Row(
         children: [
-          Expanded(
-              flex: 1,
-              child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(
-              flex: 2,
-              child: Text('Nombre de Rol',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
-          Expanded(
-              flex: 3,
-              child: Text('Permisos',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 2, child: Text('Nombre de Rol', style: TextStyle(fontWeight: FontWeight.bold))),
+          Expanded(flex: 3, child: Text('Permisos', style: TextStyle(fontWeight: FontWeight.bold))),
         ],
       ),
     );
@@ -281,6 +388,88 @@ class _ListRolScreenState extends State<ListRolScreen> {
         maxLines: 2,
         style: const TextStyle(fontSize: 14),
       ),
+    );
+  }
+}
+
+// ===== Diálogos auxiliares =====
+
+enum _ConflictAction { viewUsers, reassign, cancel }
+
+class _RoleInUseDialog extends StatelessWidget {
+  final String roleName;
+  final int userCount;
+  const _RoleInUseDialog({required this.roleName, required this.userCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Rol en uso'),
+      content: Text('“$roleName” está asignado a $userCount usuario(s). ¿Qué deseas hacer?'),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _ConflictAction.reassign),
+          child: const Text('Reasignar y eliminar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _ConflictAction.cancel),
+          child: const Text('Cancelar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReassignDialog extends StatefulWidget {
+  final int oldRoleId;
+  const _ReassignDialog({required this.oldRoleId});
+
+  @override
+  State<_ReassignDialog> createState() => _ReassignDialogState();
+}
+
+class _ReassignDialogState extends State<_ReassignDialog> {
+  int? _selectedId;
+  bool _loading = true;
+  List<RoleOption> _roles = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Cargar opciones cuando el diálogo ya está montado
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final provider = context.read<RolesProvider>();
+      final roles = await provider.fetchAlternatives(widget.oldRoleId);
+      if (!mounted) return;
+      setState(() {
+        _roles = roles;
+        _loading = false;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reasignar usuarios'),
+      content: _loading
+          ? const SizedBox(height: 64, child: Center(child: CircularProgressIndicator()))
+          : DropdownButtonFormField<int>(
+              value: _selectedId,
+              decoration: const InputDecoration(labelText: 'Nuevo rol'),
+              items: _roles
+                  .map((r) => DropdownMenuItem<int>(value: r.id, child: Text(r.name)))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedId = v),
+            ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        FilledButton(
+          onPressed: _selectedId == null || _loading ? null : () => Navigator.pop<int>(context, _selectedId),
+          child: const Text('Confirmar'),
+        ),
+      ],
     );
   }
 }

@@ -133,7 +133,7 @@ class _PasswordFieldState extends State<PasswordField> {
 class _RuleTile extends StatelessWidget {
   const _RuleTile({
     this.ok,
-    this.text,
+    this.text, this.okTextWhenFalse,
   });
 
   final bool? ok;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/RolesProvider.dart';
 import 'package:erpraf/models/usersManagment/permission_option.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
 class CreateRolesScreen extends StatefulWidget {
   const CreateRolesScreen({super.key});
@@ -44,13 +45,22 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
 
     if (!mounted) return;
     if (ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Rol creado')));
+      AppSnackBar.show(
+        context,
+        type: SnackType.success,
+        title: "Éxito",
+        message: "Rol creado",
+      );
       Navigator.pop(context, true);
     } else {
       final err =
           context.read<RolesProvider>().error ?? 'No se pudo crear el rol';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      AppSnackBar.show(
+        context,
+        type: SnackType.error,
+        title: "Algo salió mal contacta al administrador",
+        message: err,
+      );
     }
   }
 
@@ -90,15 +100,6 @@ class _CreateRolesScreenState extends State<CreateRolesScreen> {
                             : null,
                       ),
                       const SizedBox(height: 12),
-                      /*
-                      SwitchListTile(
-                        title: const Text('Activo'),
-                        value: _status,
-                        onChanged: (v) => setState(() => _status = v),
-                        secondary: const Icon(Icons.toggle_on_outlined),
-                      ),
-                      const SizedBox(height: 12),
-*/
                       const Text('Permisos',
                           style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),

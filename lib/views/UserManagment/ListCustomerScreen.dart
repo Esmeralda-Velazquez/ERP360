@@ -103,7 +103,7 @@ class _ListCustomerScreenState extends State<ListCustomerScreen> {
           final created = await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateCustomerScreen()));
           if (created == true && mounted) context.read<CustomerProvider>().fetchAll();
         },
-        label: const Text('+ CREAR CLIENTE'),
+        label: const Text('CREAR CLIENTE'),
         icon: const Icon(Icons.add),
         backgroundColor: Colors.blueGrey.shade900,
       ),
