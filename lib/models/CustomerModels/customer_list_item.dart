@@ -4,6 +4,7 @@ class CustomerListItem {
   final String? phone;
   final String? email;
   final bool status;
+  final DateTime? createdAt;
 
   CustomerListItem({
     required this.id,
@@ -11,6 +12,7 @@ class CustomerListItem {
     this.phone,
     this.email,
     required this.status,
+    this.createdAt,
   });
 
   factory CustomerListItem.fromJson(Map<String, dynamic> j) => CustomerListItem(
@@ -19,5 +21,8 @@ class CustomerListItem {
         phone: j['phoneNumber'] as String?,
         email: j['email'] as String?,
         status: j['status'] as bool? ?? true,
+        createdAt: j['createdAt'] != null
+            ? DateTime.parse(j['createdAt'] as String)
+            : null,
       );
 }

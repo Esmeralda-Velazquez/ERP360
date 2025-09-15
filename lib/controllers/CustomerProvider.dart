@@ -25,18 +25,29 @@ class CustomerProvider with ChangeNotifier {
   List<CustomerListItem> get items => _items;
   List<CustomerOption> get options => _options;
 
+  // Conveniencia para segmentar en UI
+  List<CustomerListItem> get activeItems =>
+      _items.where((c) => c.status == true).toList();
+
+  List<CustomerListItem> get inactiveItems =>
+      _items.where((c) => c.status == false).toList();
+
   // === Traer todos los clientes (lista principal) ===
-  Future<void> fetchAll({String? q}) async {
+  // Por default traemos activos + inactivos para poder segmentar en la vista
+  Future<void> fetchAll({String? q, bool includeInactive = true}) async {
     if (_loadingList) return;
     _loadingList = true;
     _error = null;
     notifyListeners();
 
     try {
+      final params = <String, String>{
+        'includeInactive': includeInactive.toString(),
+        if ((q ?? '').trim().isNotEmpty) 'q': q!.trim(),
+      };
+
       final uri = Uri.parse('$_baseUrl/api/customers').replace(
-        queryParameters: {
-          if ((q ?? '').trim().isNotEmpty) 'q': q!.trim(),
-        },
+        queryParameters: params,
       );
 
       final res = await http.get(uri, headers: {'Accept': 'application/json'});
@@ -102,6 +113,74 @@ class CustomerProvider with ChangeNotifier {
     }
   }
 
+  // === Activar cliente ===
+  Future<bool> activateById(int id) async {
+    final uri = Uri.parse('$_baseUrl/api/customers/$id/activate');
+    try {
+      final res = await http.put(uri, headers: {'Accept': 'application/json'});
+      if (res.statusCode == 200) {
+        // Actualizamos la lista en memoria sin otra llamada si quieres ser optimista:
+        final idx = _items.indexWhere((c) => c.id == id);
+        if (idx != -1) {
+          final current = _items[idx];
+          _items[idx] = CustomerListItem(
+            id: current.id,
+            fullName: current.fullName,
+            phone: current.phone,
+            email: current.email,
+            status: true,
+            createdAt: current.createdAt,
+          );
+          notifyListeners();
+        } else {
+          // Si no está en memoria, recargamos
+          await fetchAll();
+        }
+        return true;
+      }
+      _error = 'Error ${res.statusCode}: ${res.body}';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Error conexión: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // === (Opcional) Desactivar cliente ===
+  Future<bool> deactivateById(int id) async {
+    final uri = Uri.parse('$_baseUrl/api/customers/$id/deactivate');
+    try {
+      final res = await http.put(uri, headers: {'Accept': 'application/json'});
+      if (res.statusCode == 200) {
+        final idx = _items.indexWhere((c) => c.id == id);
+        if (idx != -1) {
+          final current = _items[idx];
+          _items[idx] = CustomerListItem(
+            id: current.id,
+            fullName: current.fullName,
+            phone: current.phone,
+            email: current.email,
+            status: false,
+            createdAt: current.createdAt,
+          );
+          notifyListeners();
+        } else {
+          await fetchAll();
+        }
+        return true;
+      }
+      _error = 'Error ${res.statusCode}: ${res.body}';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _error = 'Error conexión: $e';
+      notifyListeners();
+      return false;
+    }
+  }
+
   // === Eliminar cliente ===
   Future<bool> deleteById(int id) async {
     final uri = Uri.parse('$_baseUrl/api/customers/$id');
@@ -131,9 +210,8 @@ class CustomerProvider with ChangeNotifier {
 
     try {
       final uri = Uri.parse('$_baseUrl/api/customers/options').replace(
-        queryParameters: (q != null && q.trim().isNotEmpty)
-            ? {'q': q.trim()}
-            : null,
+        queryParameters:
+            (q != null && q.trim().isNotEmpty) ? {'q': q.trim()} : null,
       );
 
       final res = await http.get(uri, headers: {'Accept': 'application/json'});

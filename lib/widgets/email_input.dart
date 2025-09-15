@@ -1,4 +1,3 @@
-// lib/ui/widgets/email_input.dart
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
@@ -7,9 +6,12 @@ class EmailInput extends StatelessWidget {
   final String? hintText;
   final String? labelText;
   final IconData icon;
+
   final FormFieldValidator<String>? validator;
   final ValueChanged<String>? onChanged;
   final AutovalidateMode autovalidateMode;
+
+  final bool isRequired;
 
   const EmailInput({
     super.key,
@@ -19,15 +21,17 @@ class EmailInput extends StatelessWidget {
     this.icon = Icons.email_outlined,
     this.validator,
     this.onChanged,
-    this.autovalidateMode = AutovalidateMode.disabled, 
+    this.autovalidateMode = AutovalidateMode.disabled,
+    this.isRequired = true,
   });
 
-  static String? defaultValidator(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El correo es requerido';
-    }
+  String? _builtInValidator(String? value) {
+    final v = (value ?? '').trim();
+    if (!isRequired && v.isEmpty) return null;  
+    if (isRequired && v.isEmpty) return 'El correo es requerido';
+
     final emailRegex = RegExp(r'^[\w\.\-]+@([\w\-]+\.)+[a-zA-Z]{2,}$');
-    if (!emailRegex.hasMatch(value.trim())) {
+    if (v.isNotEmpty && !emailRegex.hasMatch(v)) {
       return 'Ingrese un correo válido';
     }
     return null;
@@ -41,11 +45,11 @@ class EmailInput extends StatelessWidget {
       keyboardType: TextInputType.emailAddress,
       autofillHints: const [AutofillHints.email],
       textInputAction: TextInputAction.next,
-      validator: validator ?? defaultValidator,
+      validator: validator ?? _builtInValidator, // usa el interno si no pasas uno
       onChanged: onChanged,
-      autovalidateMode: autovalidateMode, 
+      autovalidateMode: autovalidateMode,
       inputFormatters: [
-        FilteringTextInputFormatter.deny(RegExp(r'\s')),
+        FilteringTextInputFormatter.deny(RegExp(r'\s')), // sin espacios
       ],
       decoration: InputDecoration(
         labelText: labelText ?? 'Correo electrónico',
