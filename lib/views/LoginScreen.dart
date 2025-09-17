@@ -42,7 +42,6 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(0),
       ),
       child: Form(
-        // 👈 AQUI el Form
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -59,7 +58,10 @@ class _LoginScreenState extends State<LoginScreen> {
               onChanged: (val) => debugPrint("Escribiendo: $val"),
             ),
             const SizedBox(height: 20),
-            PasswordField(controller: _passwordController),
+            PasswordField(
+              controller: _passwordController,
+              showPolicyHelper: false,
+              ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

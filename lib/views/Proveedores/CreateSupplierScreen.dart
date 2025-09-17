@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/SupplierProvider.dart';
 import 'package:erpraf/models/SupplierModels/SupplierCategory.dart';
+import 'package:erpraf/widgets/email_input.dart';
 
 class CreateSupplierScreen extends StatefulWidget {
   const CreateSupplierScreen({super.key});
@@ -18,6 +19,7 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
   final _telefonoCtrl = TextEditingController();
   final _metodoPagoCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _categoriaCtrl = TextEditingController();
 
   int? _selectedCategoryId;
   bool _submitting = false;
@@ -25,10 +27,6 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
   @override
   void initState() {
     super.initState();
-    // Carga categorías post-frame para no chocar con build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SupplierProvider>().fetchCategories();
-    });
   }
 
   @override
@@ -45,9 +43,14 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
 
     final payload = {
       "supplierName": _nombreCtrl.text.trim(),
-      "phoneNumber": _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
-      "paymentMethod": _metodoPagoCtrl.text.trim().isEmpty ? null : _metodoPagoCtrl.text.trim(),
-      "address": _direccionCtrl.text.trim().isEmpty ? null : _direccionCtrl.text.trim(),
+      "phoneNumber":
+          _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
+      "paymentMethod": _metodoPagoCtrl.text.trim().isEmpty
+          ? null
+          : _metodoPagoCtrl.text.trim(),
+      "address": _direccionCtrl.text.trim().isEmpty
+          ? null
+          : _direccionCtrl.text.trim(),
       "categorySupplierId": _selectedCategoryId, // puede ser null
     };
 
@@ -63,8 +66,10 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
       );
       Navigator.pop(context, true);
     } else {
-      final error = context.read<SupplierProvider>().error ?? 'No se pudo crear el proveedor';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      final error = context.read<SupplierProvider>().error ??
+          'No se pudo crear el proveedor';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
@@ -86,7 +91,8 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
                 child: Form(
@@ -95,7 +101,8 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
                     children: [
                       const Text(
                         'Nuevo proveedor',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 16),
 
@@ -110,50 +117,43 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
                         ),
                         textInputAction: TextInputAction.next,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'El nombre es obligatorio';
-                          if (v.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
+                          if (v == null || v.trim().isEmpty)
+                            return 'El nombre es obligatorio';
+                          if (v.trim().length < 3)
+                            return 'El nombre debe tener al menos 3 caracteres';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-
-                      // Teléfono
                       TextFormField(
                         controller: _telefonoCtrl,
                         decoration: const InputDecoration(
-                          labelText: "Teléfono",
-                          hintText: "Ej. 479535686",
+                          labelText: 'Teléfono',
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.phone_outlined),
                         ),
-                        keyboardType: TextInputType.phone,
+                        keyboardType: TextInputType.number,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
+                          FilteringTextInputFormatter
+                              .digitsOnly, // solo números
+                          LengthLimitingTextInputFormatter(10), // máximo 10
                         ],
-                        textInputAction: TextInputAction.next,
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'El teléfono es obligatorio';
-                          if (v.trim().length < 7) return 'Teléfono inválido';
+                        validator: (value) {
+                          final v = (value ?? '').trim();
+                          if (v == null || v.trim().isEmpty)
+                            return 'El teléfono es obligatorio';
+                          if (v.length != 10)
+                            return 'Debe tener exactamente 10 dígitos';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
-
-                      // Método de pago (tu ejemplo usa email)
-                      TextFormField(
+                      EmailInput(
                         controller: _metodoPagoCtrl,
-                        decoration: const InputDecoration(
-                          labelText: "Método de Pago / Email",
-                          hintText: "Ej. compras@acme.com",
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        onChanged: (val) => debugPrint("Escribiendo: $val"),
                       ),
                       const SizedBox(height: 16),
-
-                      // Dirección
                       TextFormField(
                         controller: _direccionCtrl,
                         decoration: const InputDecoration(
@@ -166,43 +166,17 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
                         maxLines: 2,
                       ),
                       const SizedBox(height: 16),
-
-                      // Categoría (opcional) con Dropdown
-                      InputDecorator(
+                      TextFormField(
+                        controller: _categoriaCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'Categoría (opcional)',
+                          labelText: "Categoría (opcional)",
+                          hintText: "Ej. Materias primas",
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category_outlined),
                         ),
-                        child: prov.loadingCategories
-                            ? const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.0),
-                                child: LinearProgressIndicator(),
-                              )
-                            : DropdownButtonFormField<int?>(
-                                isExpanded: true,
-                                value: _selectedCategoryId,
-                                decoration: const InputDecoration.collapsed(hintText: ''),
-                                items: [
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text('Sin categoría'),
-                                  ),
-                                  ...cats.map((c) => DropdownMenuItem<int?>(
-                                        value: c.id,
-                                        child: Text(c.name),
-                                      )),
-                                ],
-                                onChanged: (v) => setState(() => _selectedCategoryId = v),
-                              ),
+                        textInputAction: TextInputAction.done,
                       ),
-                      if (prov.categoriesError != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          prov.categoriesError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
+
 
                       const SizedBox(height: 24),
 
@@ -210,7 +184,9 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: _submitting ? null : () => Navigator.pop(context, false),
+                              onPressed: _submitting
+                                  ? null
+                                  : () => Navigator.pop(context, false),
                               icon: const Icon(Icons.arrow_back),
                               label: const Text('Cancelar'),
                             ),
@@ -220,17 +196,21 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primary,
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
                               ),
                               onPressed: _submitting ? null : _guardarProveedor,
                               icon: _submitting
                                   ? const SizedBox(
                                       width: 18,
                                       height: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
                                     )
                                   : const Icon(Icons.save_outlined),
-                              label: Text(_submitting ? 'Guardando...' : 'Guardar Proveedor'),
+                              label: Text(_submitting
+                                  ? 'Guardando...'
+                                  : 'Guardar Proveedor'),
                             ),
                           ),
                         ],

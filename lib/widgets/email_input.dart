@@ -45,11 +45,11 @@ class EmailInput extends StatelessWidget {
       keyboardType: TextInputType.emailAddress,
       autofillHints: const [AutofillHints.email],
       textInputAction: TextInputAction.next,
-      validator: validator ?? _builtInValidator, // usa el interno si no pasas uno
+      validator: validator ?? _builtInValidator, 
       onChanged: onChanged,
       autovalidateMode: autovalidateMode,
       inputFormatters: [
-        FilteringTextInputFormatter.deny(RegExp(r'\s')), // sin espacios
+        FilteringTextInputFormatter.deny(RegExp(r'\s')), 
       ],
       decoration: InputDecoration(
         labelText: labelText ?? 'Correo electrónico',

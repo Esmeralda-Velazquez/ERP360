@@ -100,7 +100,6 @@ class _ListSupplierScreenState extends State<ListSupplierScreen> {
                             builder: (_) => DelateAlert(context),
                           );
                           if (confirm == true) {
-                            // TODO: llamar endpoint DELETE cuando lo tengas
                             if (direction == DismissDirection.startToEnd) {
                               final confirm = await showDialog(
                                 context: context,
@@ -161,7 +160,7 @@ class _ListSupplierScreenState extends State<ListSupplierScreen> {
             MaterialPageRoute(builder: (_) => const CreateSupplierScreen()),
           );
         },
-        label: const Text('+CREAR PROVEEDOR'),
+        label: const Text('CREAR PROVEEDOR'),
         icon: const Icon(Icons.add),
         backgroundColor: Colors.blueGrey.shade900,
       ),
