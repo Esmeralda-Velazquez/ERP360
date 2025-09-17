@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/SupplierProvider.dart';
-import 'package:erpraf/models/SupplierModels/SupplierCategory.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
 class EditSupplierScreen extends StatefulWidget {
   final Map<String, dynamic> supplier; // viene desde la lista
@@ -20,8 +20,8 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
   final _telefonoCtrl = TextEditingController();
   final _metodoPagoCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _categoriaCtrl = TextEditingController();
 
-  int? _selectedCategoryId;
   bool _submitting = false;
 
   @override
@@ -29,28 +29,11 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
     super.initState();
 
     // Prellenar campos desde el mapa recibido
-    _nombreCtrl.text   = (widget.supplier['Nombre'] ?? '').toString();
-    _telefonoCtrl.text = (widget.supplier['Telefono'] ?? '').toString();
-    _metodoPagoCtrl.text = (widget.supplier['MetodoPago'] ?? '').toString();
-    _direccionCtrl.text  = (widget.supplier['Direccion'] ?? '').toString();
-
-    // Cargar categorías y preseleccionar la del proveedor
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final prov = context.read<SupplierProvider>();
-      await prov.fetchCategories();
-
-      final currentCategoryName = (widget.supplier['Categoria'] ?? '').toString().trim();
-      if (currentCategoryName.isNotEmpty) {
-        final cats = prov.categories;
-        final match = cats.firstWhere(
-          (c) => c.name.toLowerCase() == currentCategoryName.toLowerCase(),
-          orElse: () => SupplierCategory(id: -1, name: ''),
-        );
-        if (match.id != -1) {
-          setState(() => _selectedCategoryId = match.id);
-        }
-      }
-    });
+    _nombreCtrl.text      = (widget.supplier['Nombre'] ?? '').toString();
+    _telefonoCtrl.text    = (widget.supplier['Telefono'] ?? '').toString();
+    _metodoPagoCtrl.text  = (widget.supplier['MetodoPago'] ?? '').toString();
+    _direccionCtrl.text   = (widget.supplier['Direccion'] ?? '').toString();
+    _categoriaCtrl.text   = (widget.supplier['Categoria'] ?? '').toString(); // <-- categoría como texto
   }
 
   @override
@@ -59,18 +42,21 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
     _telefonoCtrl.dispose();
     _metodoPagoCtrl.dispose();
     _direccionCtrl.dispose();
+    _categoriaCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _actualizarProveedor() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final categoria = _categoriaCtrl.text.trim();
+
     final payload = {
       "supplierName": _nombreCtrl.text.trim(),
       "phoneNumber": _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
       "paymentMethod": _metodoPagoCtrl.text.trim().isEmpty ? null : _metodoPagoCtrl.text.trim(),
       "address": _direccionCtrl.text.trim().isEmpty ? null : _direccionCtrl.text.trim(),
-      "categorySupplierId": _selectedCategoryId, // puede ser null
+      "categorySupplierId": categoria.isEmpty ? null : categoria,
     };
 
     setState(() => _submitting = true);
@@ -81,21 +67,27 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
     if (!mounted) return;
 
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proveedor actualizado con éxito')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.success,
+        title: 'Proveedor actualizado',
+        message: 'Se actualizaron los datos de ${_nombreCtrl.text.trim()}',
       );
       Navigator.pop(context, true);
     } else {
       final error = context.read<SupplierProvider>().error ?? 'No se pudo actualizar el proveedor';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+      AppSnackBar.show(
+        context,
+        type: SnackType.error,
+        title: 'Error',
+        message: error,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final primary = Colors.blueGrey.shade900;
-    final prov = context.watch<SupplierProvider>();
-    final List<SupplierCategory> cats = prov.categories;
 
     return Scaffold(
       appBar: AppBar(
@@ -139,7 +131,6 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Teléfono
                       TextFormField(
                         controller: _telefonoCtrl,
                         decoration: const InputDecoration(
@@ -147,20 +138,21 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.phone_outlined),
                         ),
-                        keyboardType: TextInputType.phone,
+                        keyboardType: TextInputType.number,
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]')),
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
                         ],
                         textInputAction: TextInputAction.next,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'El teléfono es obligatorio';
-                          if (v.trim().length < 7) return 'Teléfono inválido';
+                          final x = (v ?? '').trim();
+                          if (x.isEmpty) return 'El teléfono es obligatorio';
+                          if (x.length != 10) return 'Debe tener exactamente 10 dígitos';
                           return null;
                         },
                       ),
                       const SizedBox(height: 16),
 
-                      // Método de pago / Email
                       TextFormField(
                         controller: _metodoPagoCtrl,
                         decoration: const InputDecoration(
@@ -173,7 +165,6 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Dirección
                       TextFormField(
                         controller: _direccionCtrl,
                         decoration: const InputDecoration(
@@ -186,42 +177,16 @@ class _EditSupplierScreenState extends State<EditSupplierScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Categoría (opcional) con Dropdown
-                      InputDecorator(
+                      TextFormField(
+                        controller: _categoriaCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'Categoría (opcional)',
+                          labelText: "Categoría (opcional)",
+                          hintText: "Ej. Materias primas",
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category_outlined),
                         ),
-                        child: prov.loadingCategories
-                            ? const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8.0),
-                                child: LinearProgressIndicator(),
-                              )
-                            : DropdownButtonFormField<int?>(
-                                isExpanded: true,
-                                value: _selectedCategoryId,
-                                decoration: const InputDecoration.collapsed(hintText: ''),
-                                items: [
-                                  const DropdownMenuItem<int?>(
-                                    value: null,
-                                    child: Text('Sin categoría'),
-                                  ),
-                                  ...cats.map((c) => DropdownMenuItem<int?>(
-                                        value: c.id,
-                                        child: Text(c.name),
-                                      )),
-                                ],
-                                onChanged: (v) => setState(() => _selectedCategoryId = v),
-                              ),
+                        textInputAction: TextInputAction.done,
                       ),
-                      if (prov.categoriesError != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          prov.categoriesError!,
-                          style: const TextStyle(color: Colors.red),
-                        ),
-                      ],
 
                       const SizedBox(height: 24),
 

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/SupplierProvider.dart';
 import 'package:erpraf/views/Proveedores/CreateSupplierScreen.dart';
 import 'package:erpraf/views/Proveedores/EditSupplierScreen.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
+import 'package:erpraf/widgets/nice_dialogs.dart';
 
 class ListSupplierScreen extends StatefulWidget {
   const ListSupplierScreen({super.key});
@@ -15,7 +17,6 @@ class _ListSupplierScreenState extends State<ListSupplierScreen> {
   @override
   void initState() {
     super.initState();
-    // Ejecuta la carga después del primer frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SupplierProvider>().fetchAll();
     });
@@ -77,8 +78,9 @@ class _ListSupplierScreenState extends State<ListSupplierScreen> {
                       background: _buildSwipeActionLeft(),
                       secondaryBackground: _buildSwipeActionRight(),
                       confirmDismiss: (direction) async {
+                        // Editar (swipe derecha -> izquierda)
                         if (direction == DismissDirection.endToStart) {
-                          Navigator.push(
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => EditSupplierScreen(
@@ -93,34 +95,48 @@ class _ListSupplierScreenState extends State<ListSupplierScreen> {
                               ),
                             ),
                           );
-                          return false;
-                        } else {
-                          final confirm = await showDialog(
-                            context: context,
-                            builder: (_) => DelateAlert(context),
+                          return false; // no dismiss
+                        }
+
+                        // Eliminar (swipe izquierda -> derecha)
+                        final confirmed = await NiceDialogs.showConfirm(
+                          context,
+                          title: 'Eliminar proveedor',
+                          message:
+                              '¿Estás seguro de eliminar a "${s.supplierName}"?',
+                          confirmText: 'Eliminar',
+                          cancelText: 'Cancelar',
+                          icon: Icons.delete_forever_rounded,
+                          accentColor:
+                              Colors.red, // opcional, se ve más “peligro”
+                          barrierDismissible:
+                              false, // opcional, evita cerrar tocando fuera
+                        );
+
+                        if (confirmed != true) return false;
+
+                        final ok = await context
+                            .read<SupplierProvider>()
+                            .deleteById(s.supplierId);
+                        if (ok) {
+                          AppSnackBar.show(
+                            context,
+                            type: SnackType.success,
+                            title: 'Proveedor eliminado',
+                            message: 'Se eliminó a ${s.supplierName}',
                           );
-                          if (confirm == true) {
-                            if (direction == DismissDirection.startToEnd) {
-                              final confirm = await showDialog(
-                                context: context,
-                                builder: (_) => DelateAlert(context),
-                              );
-                              if (confirm == true) {
-                                final ok = await context
-                                    .read<SupplierProvider>()
-                                    .deleteById(s.supplierId);
-                                if (ok) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                        content: Text(
-                                            'Proveedor eliminado: ${s.supplierName}')),
-                                  );
-                                }
-                              }
-                              return confirm == true;
-                            }
-                          }
-                          return confirm == true;
+                          return true; 
+                        } else {
+                          final error =
+                              context.read<SupplierProvider>().error ??
+                                  'No se pudo eliminar';
+                          AppSnackBar.show(
+                            context,
+                            type: SnackType.error,
+                            title: 'Error',
+                            message: error,
+                          );
+                          return false;
                         }
                       },
                       child: Card(
@@ -165,23 +181,6 @@ class _ListSupplierScreenState extends State<ListSupplierScreen> {
         backgroundColor: Colors.blueGrey.shade900,
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-    );
-  }
-
-  AlertDialog DelateAlert(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Eliminar proveedor'),
-      content: const Text('¿Estás seguro de eliminar este proveedor?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancelar'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context, true),
-          child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
-        ),
-      ],
     );
   }
 

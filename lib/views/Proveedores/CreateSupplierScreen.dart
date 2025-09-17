@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/SupplierProvider.dart';
 import 'package:erpraf/models/SupplierModels/SupplierCategory.dart';
 import 'package:erpraf/widgets/email_input.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
 class CreateSupplierScreen extends StatefulWidget {
   const CreateSupplierScreen({super.key});
@@ -38,40 +39,42 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
     super.dispose();
   }
 
-  Future<void> _guardarProveedor() async {
-    if (!_formKey.currentState!.validate()) return;
+Future<void> _guardarProveedor() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    final payload = {
-      "supplierName": _nombreCtrl.text.trim(),
-      "phoneNumber":
-          _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
-      "paymentMethod": _metodoPagoCtrl.text.trim().isEmpty
-          ? null
-          : _metodoPagoCtrl.text.trim(),
-      "address": _direccionCtrl.text.trim().isEmpty
-          ? null
-          : _direccionCtrl.text.trim(),
-      "categorySupplierId": _selectedCategoryId, // puede ser null
-    };
+  final categoria = _categoriaCtrl.text.trim();
+  final payload = {
+    "supplierName": _nombreCtrl.text.trim(),
+    "phoneNumber": _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
+    "paymentMethod": _metodoPagoCtrl.text.trim().isEmpty ? null : _metodoPagoCtrl.text.trim(),
+    "address": _direccionCtrl.text.trim().isEmpty ? null : _direccionCtrl.text.trim(),
+    "categorySupplierId": categoria.isEmpty ? null : categoria,
+  };
 
-    setState(() => _submitting = true);
-    final ok = await context.read<SupplierProvider>().create(payload);
-    setState(() => _submitting = false);
+  setState(() => _submitting = true);
+  final ok = await context.read<SupplierProvider>().create(payload);
+  setState(() => _submitting = false);
+  if (!mounted) return;
 
-    if (!mounted) return;
-
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Proveedor creado con éxito')),
-      );
-      Navigator.pop(context, true);
-    } else {
-      final error = context.read<SupplierProvider>().error ??
-          'No se pudo crear el proveedor';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error)));
-    }
+  if (ok) {
+    AppSnackBar.show(
+      context,
+      type: SnackType.success,
+      title: 'Proveedor creado',
+      message: 'Se creó el proveedor ${_nombreCtrl.text.trim()}',
+    );
+    Navigator.pop(context, true);
+  } else {
+    final error = context.read<SupplierProvider>().error ?? 'No se pudo crear el proveedor';
+    AppSnackBar.show(
+      context,
+      type: SnackType.error,
+      title: 'Error',
+      message: error,
+    );
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -135,8 +138,8 @@ class _CreateSupplierScreenState extends State<CreateSupplierScreen> {
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter
-                              .digitsOnly, // solo números
-                          LengthLimitingTextInputFormatter(10), // máximo 10
+                              .digitsOnly, 
+                          LengthLimitingTextInputFormatter(10),
                         ],
                         validator: (value) {
                           final v = (value ?? '').trim();
