@@ -1,8 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:erpraf/controllers/InventoryProvider.dart';
 import 'package:erpraf/views/Inventory/EditProductScreen.dart';
 import 'package:erpraf/views/Inventory/CreateProductScreen.dart';
+import 'package:erpraf/widgets/nice_dialogs.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
 class ListInventoryScreen extends StatefulWidget {
   const ListInventoryScreen({super.key});
@@ -14,18 +18,39 @@ class ListInventoryScreen extends StatefulWidget {
 class _ListInventoryScreenState extends State<ListInventoryScreen> {
   final _searchCtrl = TextEditingController();
 
-  late InventoryProvider inv; // referencia cacheada
-  bool _didInit = false; // para asegurar un solo fetch post-frame
+  late InventoryProvider inv;
+  bool _didInit = false;
+
+  Timer? _debounce;
+  static const _debounceMs = 350;
+
+  final _mxn = NumberFormat.currency(locale: 'es_MX', symbol: r'$');
+  final _intFmt = NumberFormat.decimalPattern('es_MX');
+
+  String fmtMoneyDyn(dynamic v) {
+    if (v == null) return _mxn.format(0);
+    final d = (v is num) ? v.toDouble() : double.tryParse(v.toString()) ?? 0.0;
+    return _mxn.format(d);
+  }
+
+  String fmtQtyDyn(dynamic v) {
+    if (v == null) return _intFmt.format(0);
+    final n = (v is num) ? v : (double.tryParse(v.toString()) ?? 0.0);
+    return _intFmt.format(n.round());
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_didInit) {
       inv = context.read<InventoryProvider>();
-      // ⚠️ Programar el fetch para después del primer frame:
+
+      _searchCtrl.addListener(() => setState(() {}));
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        inv.fetchAll(); // ya no notifica durante build
+        // Trae activos + inactivos para tabear sin doble fetch
+        inv.fetchAll(includeInactive: true);
       });
       _didInit = true;
     }
@@ -33,353 +58,539 @@ class _ListInventoryScreenState extends State<ListInventoryScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: _debounceMs), () {
+      inv.fetchAll(q: q, includeInactive: true);
+    });
+  }
+
+  void _clearQuery() {
+    _debounce?.cancel();
+    _searchCtrl.clear();
+    inv.fetchAll(q: '', includeInactive: true);
   }
 
   @override
   Widget build(BuildContext context) {
     final prov = context.watch<InventoryProvider>();
+    final primary = Colors.blueGrey.shade900;
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blueGrey.shade900,
-        title: const Text('Listado de Inventario'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              inv.fetchAll(q: _searchCtrl.text);
-            },
+    final suffix = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 150),
+      child: prov.loading
+          ? const SizedBox(
+              key: ValueKey('spin'),
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : (_searchCtrl.text.isNotEmpty
+              ? IconButton(
+                  key: const ValueKey('clear'),
+                  tooltip: 'Limpiar',
+                  icon: const Icon(Icons.clear),
+                  onPressed: _clearQuery,
+                )
+              : const SizedBox.shrink()),
+    );
+
+    // Filtrado por status en UI
+    final activeItems = prov.items.where((e) => e.status).toList();
+    final inactiveItems = prov.items.where((e) => !e.status).toList();
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: primary,
+          title: const Text('Listado de Inventario'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _SearchBar(
-            controller: _searchCtrl,
-            onSearch: (term) => inv.fetchAll(q: term),
-          ),
-          // Encabezados
-          Container(
-            color: const Color.fromARGB(120, 57, 112, 129),
-            child: const Row(
-              children: [
-                _HeaderCell('Código'),
-                _HeaderCell('Nombre'),
-                _HeaderCell('Categoría'),
-                _HeaderCell('Marca'),
-                _HeaderCell('Talla'),
-                _HeaderCell('Stock mín'),
-                _HeaderCell('Existencia'),
-                _HeaderCell('Precio'),
-                _HeaderCell(''),
-              ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () =>
+                  inv.fetchAll(q: _searchCtrl.text, includeInactive: true),
             ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Activos'),
+              Tab(text: 'Inactivos'),
+            ],
           ),
-          // Lista
-          Expanded(
-            child: prov.loading
-                ? const Center(child: CircularProgressIndicator())
-                : (prov.error != null)
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(prov.error!,
-                              style: const TextStyle(color: Colors.red)),
-                        ),
-                      )
-                    : _InventoryList(
-                        items: prov.items,
-                        onEdit: (it) async {
-                          final edited = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EditProductScreen(
-                                product: {
-                                  'id': it.id,
-                                  'name': it.name,
-                                  'category': it.category,
-                                  'brand': it.brand,
-                                  'size': it.size,
-                                  'color': it.color,
-                                  'price': it.price,
-                                },
-                              ),
-                            ),
-                          );
-                          if (!mounted) return;
-                          if (edited == true) {
-                            inv.fetchAll(q: _searchCtrl.text);
-                          }
-                        },
-                        onDelete: (it) async {
-                          final confirm = await _confirmDeleteDialog(context);
-                          if (!mounted || confirm != true) return;
-
-                          final ok = await inv.deleteById(it.id);
-                          if (!mounted) return;
-
-                          if (ok) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                      Text('Producto eliminado: ${it.name}')),
-                            );
-                          } else {
-                            final err = inv.error ?? 'No se pudo eliminar';
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(err)),
-                            );
-                          }
-                        },
-                        onDeactivate: (it) async {
-                          final confirm = await _confirmDeactivateDialog(context);
-                          if (!mounted || confirm != true) return;
-
-                          final ok = await inv.deactivate(it.id);
-                          if (!mounted) return;
-
-                          if (ok) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                      Text('Producto desactivado: ${it.name}')),
-                            );
-                          } else {
-                            final err = inv.error ?? 'No se pudo desactivar';
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(SnackBar(content: Text(err)));
-                          }
-                        },
-                        onDetails: (it) => _showDetailsDialog(context, it),
+        ),
+        body: Column(
+          children: [
+            // Buscador en vivo (sin botón)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      textInputAction: TextInputAction.search,
+                      onChanged: _onQueryChanged,
+                      onSubmitted: (v) =>
+                          inv.fetchAll(q: v, includeInactive: true),
+                      decoration: InputDecoration(
+                        hintText: 'Buscar por nombre / categoría / marca',
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: suffix,
                       ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.blueGrey.shade900,
-        icon: const Icon(Icons.add),
-        label: const Text('Nuevo producto'),
-        onPressed: () async {
-          final created = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateProductScreen()),
-          );
-          if (!mounted) return;
-          if (created == true) {
-            inv.fetchAll(q: _searchCtrl.text);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Producto creado')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Encabezados fijos
+            Container(
+              color: const Color.fromARGB(120, 57, 112, 129),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              child: const Row(
+                children: [
+                  _HeaderCell('Código', flex: 2, right: true),
+                  _HeaderCell('Nombre', flex: 3),
+                  _HeaderCell('Categoría', flex: 2),
+                  _HeaderCell('Marca', flex: 2),
+                  _HeaderCell('Talla', flex: 1),
+                  _HeaderCell('Stock mín', flex: 1, right: true),
+                  _HeaderCell('Existencia', flex: 1, right: true),
+                  _HeaderCell('Precio', flex: 2, right: true),
+                  SizedBox(width: 112), // acciones
+                ],
+              ),
+            ),
+
+            // SOLO el cuerpo scroll
+            Expanded(
+              child: prov.loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : (prov.error != null)
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                              prov.error!,
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
+                      : TabBarView(
+                          children: [
+                            // === Activos ===
+                            _InventoryList(
+                              items: activeItems,
+                              fmtMoney: fmtMoneyDyn,
+                              fmtQty: fmtQtyDyn,
+                              onEdit: (it) async {
+                                final edited = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EditProductScreen(
+                                      product: {
+                                        'id': it.id,
+                                        'name': it.name,
+                                        'category': it.category,
+                                        'brand': it.brand,
+                                        'size': it.size,
+                                        'color': it.color,
+                                        'price': it.price,
+                                        'stockMin': it.stockMin,
+                                        'stock': it.stock,
+                                      },
+                                    ),
+                                  ),
+                                );
+                                if (!mounted) return;
+                                if (edited == true) {
+                                  inv.fetchAll(
+                                      q: _searchCtrl.text,
+                                      includeInactive: true);
+                                }
+                              },
+                              onDelete: (it) async {
+                                final confirm =
+                                    await _confirmDeleteDialog(context);
+                                if (!mounted || confirm != true) return;
+
+                                final ok = await inv.deleteById(it.id);
+                                if (!mounted) return;
+
+                                var message = ok
+                                    ? 'Producto eliminado: ${it.name}'
+                                    : (inv.error ?? 'No se pudo eliminar');
+                                if (!ok) {
+                                  AppSnackBar.show(
+                                    context,
+                                    type: SnackType.error,
+                                    message: message,
+                                  );
+                                }else {
+                                AppSnackBar.show(
+                                  context,
+                                  type: SnackType.success,
+                                  message: message,
+                                );
+                                }
+                              },
+                              onDeactivate: (it) async {
+                                final confirm =
+                                    await _confirmDeactivateDialog(context);
+                                if (!mounted || confirm != true) return;
+
+                                final ok = await inv.deactivate(it.id);
+                                if (!mounted) return;
+                                var message = ok
+                                    ? 'Producto desactivado: ${it.name}'
+                                    : (inv.error ?? 'No se pudo desactivar');
+                                if (!ok) {
+                                  AppSnackBar.show(
+                                    context,
+                                    type: SnackType.error,
+                                    message: message,
+                                  );
+                                }else {
+                                AppSnackBar.show(
+                                  context,
+                                  type: SnackType.success,
+                                  message: message,
+                                );
+                                }
+                                if (ok)
+                                  inv.fetchAll(
+                                      q: _searchCtrl.text,
+                                      includeInactive: true);
+                              },
+                              onDetails: (it) => _showDetailsDialog(
+                                context,
+                                it,
+                                fmtMoney: fmtMoneyDyn,
+                                fmtQty: fmtQtyDyn,
+                              ),
+                              inactiveList: false,
+                              onActivate: null,
+                            ),
+
+                            // === Inactivos ===
+                            _InventoryList(
+                              items: inactiveItems,
+                              fmtMoney: fmtMoneyDyn,
+                              fmtQty: fmtQtyDyn,
+                              onEdit: (_) async {}, // no editar aquí
+                              onDelete: (_) async {}, // no borrar aquí
+                              onDeactivate: (_) async {}, // no aplica
+                              onDetails: (it) => _showDetailsDialog(
+                                context,
+                                it,
+                                fmtMoney: fmtMoneyDyn,
+                                fmtQty: fmtQtyDyn,
+                              ),
+                              inactiveList: true,
+                              onActivate: (it) async {
+                                final ok = await inv.activate(it.id);
+                                if (!mounted) return;
+
+                                 var message = ok
+                                    ? 'Producto activado: ${it.name}'
+                                    : (inv.error ?? 'No se pudo activar');
+                                if (!ok) {
+                                  AppSnackBar.show(
+                                    context,
+                                    type: SnackType.error,
+                                    message: message,
+                                  );
+                                }else {
+                                AppSnackBar.show(
+                                  context,
+                                  type: SnackType.success,
+                                  message: message,
+                                );
+                                }
+                                if (ok)
+                                  inv.fetchAll(
+                                      q: _searchCtrl.text,
+                                      includeInactive: true);
+                              },
+                            ),
+                          ],
+                        ),
+            ),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          backgroundColor: primary,
+          icon: const Icon(Icons.add),
+          label: const Text('Nuevo producto'),
+          onPressed: () async {
+            final created = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CreateProductScreen()),
             );
-          }
-        },
+            if (!mounted) return;
+            if (created == true) {
+              inv.fetchAll(q: _searchCtrl.text, includeInactive: true);
+              AppSnackBar.show(
+                context,
+                type: SnackType.success,
+                message: 'Producto creado',
+              );
+            }
+          },
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
 /* ===================== Widgets auxiliares ===================== */
 
-class _SearchBar extends StatelessWidget {
-  final TextEditingController controller;
-  final ValueChanged<String> onSearch;
-  const _SearchBar({required this.controller, required this.onSearch});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                hintText: 'Buscar por nombre / categoría / marca',
-                border: OutlineInputBorder(),
-                isDense: true,
-                prefixIcon: Icon(Icons.search),
-              ),
-              onSubmitted: onSearch,
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => onSearch(controller.text),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueGrey.shade900),
-            child: const Text('Buscar'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _InventoryList extends StatelessWidget {
+class _InventoryList extends StatefulWidget {
   final List items;
+  final String Function(dynamic) fmtMoney;
+  final String Function(dynamic) fmtQty;
   final Future<void> Function(dynamic it) onEdit;
   final Future<void> Function(dynamic it) onDelete;
   final Future<void> Function(dynamic it) onDeactivate;
   final void Function(dynamic it) onDetails;
 
+  // Modo inactivos
+  final bool inactiveList;
+  final Future<void> Function(dynamic it)? onActivate;
+
   const _InventoryList({
+    super.key,
     required this.items,
+    required this.fmtMoney,
+    required this.fmtQty,
     required this.onEdit,
     required this.onDelete,
     required this.onDeactivate,
     required this.onDetails,
+    required this.inactiveList,
+    required this.onActivate,
   });
 
   @override
+  State<_InventoryList> createState() => _InventoryListState();
+}
+
+class _InventoryListState extends State<_InventoryList> {
+  late final ScrollController _sc;
+
+  @override
+  void initState() {
+    super.initState();
+    _sc = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _sc.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return const Center(child: Text('No hay productos en inventario'));
+    // padding inferior para que el FAB no tape el último ítem
+    final bottomPad = MediaQuery.of(context).padding.bottom + 88.0;
+
+    if (widget.items.isEmpty) {
+      return Scrollbar(
+        controller: _sc,
+        thumbVisibility: true,
+        child: ListView(
+          controller: _sc,
+          primary: false,
+          padding: EdgeInsets.only(bottom: bottomPad),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          children: const [
+            SizedBox(height: 24),
+            Center(child: Text('Sin resultados')),
+          ],
+        ),
+      );
     }
 
-    return ListView.builder(
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final it = items[index];
-        return Container(
-          color: index.isEven
+    return Scrollbar(
+      controller: _sc,
+      thumbVisibility: true,
+      child: ListView.builder(
+        controller: _sc,
+        primary: false,
+        padding: EdgeInsets.only(bottom: bottomPad),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: widget.items.length,
+        itemBuilder: (context, index) {
+          final it = widget.items[index];
+          final bg = index.isEven
               ? const Color.fromARGB(120, 135, 180, 194)
-              : Colors.white,
-          child: Row(
-            children: [
-              _DataCell(it.id.toString()),
-              _DataCell(it.name),
-              _DataCell(it.category ?? ''),
-              _DataCell(it.brand ?? ''),
-              _DataCell(it.size ?? ''),
-              _DataCell(it.stockMin.toStringAsFixed(0)),
-              _DataCell(it.stock.toStringAsFixed(0)),
-              _DataCell(it.price ?? ''),
-              _OptionsMenu(
-                onSelected: (option) async {
-                  switch (option) {
-                    case 'editar':
-                      await onEdit(it);
-                      break;
-                    case 'desactivar':
-                      await onDeactivate(it);
-                      break;
-                    case 'detalles':
-                      onDetails(it);
-                      break;
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
+              : Colors.white;
+
+          return Container(
+            color: bg,
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+            child: Row(
+              children: [
+                _DataCell('#${it.id}', flex: 2, right: true),
+                _DataCell(it.name, flex: 3),
+                _DataCell(it.category ?? '', flex: 2),
+                _DataCell(it.brand ?? '', flex: 2),
+                _DataCell(it.size ?? '', flex: 1),
+                _DataCell(widget.fmtQty(it.stockMin), flex: 1, right: true),
+                _DataCell(widget.fmtQty(it.stock), flex: 1, right: true),
+                _DataCell(widget.fmtMoney(it.price), flex: 2, right: true),
+
+                // Acciones
+                SizedBox(
+                  width: 112,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: widget.inactiveList
+                        ? [
+                            IconButton(
+                              tooltip: 'Activar',
+                              icon: const Icon(Icons.check_circle,
+                                  color: Colors.green),
+                              onPressed: widget.onActivate == null
+                                  ? null
+                                  : () => widget.onActivate!(it),
+                            ),
+                            IconButton(
+                              tooltip: 'Detalles',
+                              icon: const Icon(Icons.info_outline),
+                              onPressed: () => widget.onDetails(it),
+                            ),
+                          ]
+                        : [
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_horiz),
+                              onSelected: (option) async {
+                                switch (option) {
+                                  case 'editar':
+                                    await widget.onEdit(it);
+                                    break;
+                                  case 'desactivar':
+                                    await widget.onDeactivate(it);
+                                    break;
+                                  case 'detalles':
+                                    widget.onDetails(it);
+                                    break;
+                                }
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                    value: 'editar', child: Text('Editar')),
+                                PopupMenuItem(
+                                    value: 'desactivar',
+                                    child: Text('Desactivar')),
+                                PopupMenuItem(
+                                    value: 'detalles', child: Text('Detalles')),
+                              ],
+                            ),
+                          ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
 
 class _HeaderCell extends StatelessWidget {
   final String label;
-  const _HeaderCell(this.label);
+  final int flex;
+  final bool right;
+  const _HeaderCell(this.label, {this.flex = 1, this.right = false, super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Expanded(
+        flex: flex,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            label,
+            textAlign: right ? TextAlign.right : TextAlign.left,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
 }
 
 class _DataCell extends StatelessWidget {
   final String value;
-  const _DataCell(this.value);
+  final int flex;
+  final bool right;
+  const _DataCell(this.value, {this.flex = 1, this.right = false, super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Text(value),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Expanded(
+        flex: flex,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            value,
+            textAlign: right ? TextAlign.right : TextAlign.left,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+      );
 }
 
-class _OptionsMenu extends StatelessWidget {
-  final void Function(String) onSelected;
-  const _OptionsMenu({required this.onSelected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      child: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_horiz),
-        onSelected: onSelected,
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'editar', child: Text('Editar')),
-          PopupMenuItem(
-              value: 'desactivar',
-              child: Text('Desactivar')), // <— antes decía Eliminar
-          PopupMenuItem(value: 'detalles', child: Text('Detalles')),
-        ],
-      ),
-    );
-  }
-}
-
-/* ===================== Diálogos ===================== */
 Future<bool?> _confirmDeactivateDialog(BuildContext context) {
-  return showDialog<bool>(
-    context: context,
-    builder: (dctx) => AlertDialog(
-      title: const Text('Desactivar producto'),
-      content: const Text(
-          'El producto no se mostrará en el inventario activo. ¿Continuar?'),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.of(dctx).pop(false),
-            child: const Text('Cancelar')),
-        ElevatedButton(
-            onPressed: () => Navigator.of(dctx).pop(true),
-            child: const Text('Desactivar')),
-      ],
-    ),
+  return NiceDialogs.showConfirm(
+    context,
+    title: 'Desactivar producto',
+    message: 'El producto no se mostrará en el inventario activo. ¿Continuar?',
+    confirmText: 'Desactivar',
+    cancelText: 'Cancelar',
+    icon: Icons.block,
+    accentColor: Colors.amber.shade800, // sensación de advertencia
+    barrierDismissible: false,
   );
 }
 
 Future<bool?> _confirmDeleteDialog(BuildContext context) {
-  return showDialog<bool>(
-    context: context,
-    builder: (dialogCtx) => AlertDialog(
-      title: const Text('¿Eliminar producto?'),
-      content:
-          const Text('¿Estás seguro de eliminar este producto del inventario?'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(dialogCtx).pop(false),
-          child: const Text('Cancelar'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-          onPressed: () => Navigator.of(dialogCtx).pop(true),
-          child: const Text('Aceptar'),
-        ),
-      ],
-    ),
+  return NiceDialogs.showConfirm(
+    context,
+    title: '¿Eliminar producto?',
+    message:
+        'Esta acción eliminará el producto del inventario. ¿Seguro que deseas continuar?',
+    confirmText: 'Eliminar',
+    cancelText: 'Cancelar',
+    icon: Icons.delete_forever_rounded,
+    accentColor: Colors.red, // sensación de peligro
+    barrierDismissible: false,
   );
 }
 
-void _showDetailsDialog(BuildContext context, dynamic it) {
+void _showDetailsDialog(
+  BuildContext context,
+  dynamic it, {
+  required String Function(dynamic) fmtMoney,
+  required String Function(dynamic) fmtQty,
+}) {
   showDialog(
     context: context,
     builder: (dialogCtx) => AlertDialog(
@@ -393,10 +604,10 @@ void _showDetailsDialog(BuildContext context, dynamic it) {
           _buildDetailRow('Categoría', it.category),
           _buildDetailRow('Marca', it.brand),
           _buildDetailRow('Talla', it.size),
-          _buildDetailRow('Precio', it.price),
+          _buildDetailRow('Precio', fmtMoney(it.price)),
           _buildDetailRow('Color', it.color),
-          _buildDetailRow('Stock mín', it.stockMin.toStringAsFixed(0)),
-          _buildDetailRow('Existencia', it.stock.toStringAsFixed(0)),
+          _buildDetailRow('Stock mín', fmtQty(it.stockMin)),
+          _buildDetailRow('Existencia', fmtQty(it.stock)),
         ],
       ),
       actions: [
