@@ -13,7 +13,7 @@ class MenuSaleScreen extends StatelessWidget {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: Colors.blueGrey.shade900,
-        title: const Text('VENTAS'),
+        title: const Text('Ventas'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {

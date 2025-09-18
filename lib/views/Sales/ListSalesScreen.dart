@@ -106,7 +106,7 @@ class _ListSalesScreenState extends State<ListSalesScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: primary,
-        title: const Text('Ventas'),
+        title: const Text('Ventas actuales'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

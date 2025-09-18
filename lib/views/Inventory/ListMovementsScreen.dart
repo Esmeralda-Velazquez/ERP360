@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:erpraf/controllers/MovementsProvider.dart';
 import 'package:intl/intl.dart';
+
+import 'package:erpraf/controllers/MovementsProvider.dart';
 import 'package:erpraf/views/Inventory/CreateMovementScreen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -21,6 +23,10 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
   late MovementsProvider movProv;
   bool _didInit = false;
 
+  // Debounce para filtros
+  Timer? _fltDebounce;
+  static const _fltDebMs = 300;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -30,14 +36,24 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
         if (!mounted) return;
         movProv.fetch(); // carga inicial
       });
+
+      // auto-refrescar cuando escriben en ID
+      _productIdCtrl.addListener(_scheduleRefetch);
+
       _didInit = true;
     }
   }
 
   @override
   void dispose() {
+    _fltDebounce?.cancel();
     _productIdCtrl.dispose();
     super.dispose();
+  }
+
+  void _scheduleRefetch() {
+    _fltDebounce?.cancel();
+    _fltDebounce = Timer(const Duration(milliseconds: _fltDebMs), _search);
   }
 
   Future<void> _pickDate({required bool from}) async {
@@ -57,11 +73,12 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
           _to = picked;
         }
       });
+      _scheduleRefetch(); // auto-refresca totales/lista al cambiar fecha
     }
   }
 
   void _search() {
-    int? pid = int.tryParse(_productIdCtrl.text.trim());
+    final pid = int.tryParse(_productIdCtrl.text.trim());
     movProv.fetch(
       productId: pid,
       type: _type,
@@ -71,6 +88,16 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
       pageSize: 50,
       sort: 'desc',
     );
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _productIdCtrl.clear();
+      _type = null;
+      _from = null;
+      _to = null;
+    });
+    movProv.fetch(page: 1, pageSize: 50, sort: 'desc');
   }
 
   Future<void> _exportCsvOpenBrowser() async {
@@ -91,22 +118,27 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
     }
   }
 
+  String _fmtInt(num v) => NumberFormat.decimalPattern('es_MX').format(v.round());
+  String _fmtQtyStr(String s) {
+    final d = double.tryParse(s) ?? 0;
+    return _fmtInt(d);
+  }
+
   @override
   Widget build(BuildContext context) {
     final prov = context.watch<MovementsProvider>();
     final df = DateFormat('yyyy-MM-dd HH:mm');
+    final primary = Colors.blueGrey.shade900;
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blueGrey.shade900,
+        backgroundColor: primary,
         title: const Text('Historial de Movimientos'),
         actions: [
           IconButton(
             tooltip: 'Exportar CSV',
             icon: const Icon(Icons.download),
-            onPressed: () {
-              _exportCsvOpenBrowser();
-            },
+            onPressed: _exportCsvOpenBrowser,
           ),
         ],
       ),
@@ -115,14 +147,18 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
           _Filters(
             productIdCtrl: _productIdCtrl,
             type: _type,
-            onTypeChanged: (v) => setState(() => _type = v),
+            onTypeChanged: (v) {
+              setState(() => _type = v);
+              _scheduleRefetch();
+            },
             from: _from,
             to: _to,
             pickDate: _pickDate,
             onSearch: _search,
+            onClear: _clearFilters,
           ),
 
-          // Totales
+          // Totales (enteros)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Wrap(
@@ -159,41 +195,48 @@ class _ListMovementsScreenState extends State<ListMovementsScreen> {
                     ? Center(child: Text(prov.error!, style: const TextStyle(color: Colors.red)))
                     : (prov.items.isEmpty)
                         ? const Center(child: Text('Sin movimientos'))
-                        : ListView.builder(
-                            itemCount: prov.items.length,
-                            itemBuilder: (context, index) {
-                              final it = prov.items[index];
-                              return Container(
-                                color: index.isEven
-                                    ? const Color.fromARGB(120, 135, 180, 194)
-                                    : Colors.white,
-                                child: Row(
-                                  children: [
-                                    _DataCell(df.format(it.date)),
-                                    _DataCell(it.type),
-                                    _DataCell(it.amount),
-                                    _DataCell('#${it.productId} — ${it.productName}'),
-                                    _DataCell(it.userName ?? '-'),
-                                  ],
-                                ),
-                              );
-                            },
+                        : Padding(
+                            // espacio inferior para que el FAB no tape los últimos registros
+                            padding: const EdgeInsets.only(bottom: 88),
+                            child: ListView.builder(
+                              itemCount: prov.items.length,
+                              itemBuilder: (context, index) {
+                                final it = prov.items[index];
+                                return Container(
+                                  color: index.isEven
+                                      ? const Color.fromARGB(120, 135, 180, 194)
+                                      : Colors.white,
+                                  child: Row(
+                                    children: [
+                                      _DataCell(df.format(it.date)),
+                                      _DataCell(it.type),
+                                      _DataCell(_fmtQtyStr(it.amount)), // entero
+                                      _DataCell('#${it.productId} — ${it.productName}'),
+                                      _DataCell(it.userName ?? '-'),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: Colors.blueGrey.shade900,
+        backgroundColor: primary,
         icon: const Icon(Icons.add),
         label: const Text('Registrar movimiento'),
         onPressed: () {
-          // Aquí luego conectamos la pantalla para crear IN/OUT/ADJ
-           Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateMovementScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CreateMovementScreen()),
+          );
         },
       ),
     );
   }
 }
+
 /* ---------- Filtros & UI helpers ---------- */
 
 class _Filters extends StatelessWidget {
@@ -204,6 +247,7 @@ class _Filters extends StatelessWidget {
   final DateTime? to;
   final Future<void> Function({required bool from}) pickDate;
   final VoidCallback onSearch;
+  final VoidCallback onClear;
 
   const _Filters({
     required this.productIdCtrl,
@@ -213,6 +257,7 @@ class _Filters extends StatelessWidget {
     required this.to,
     required this.pickDate,
     required this.onSearch,
+    required this.onClear,
   });
 
   @override
@@ -236,11 +281,12 @@ class _Filters extends StatelessWidget {
                 isDense: true,
               ),
               keyboardType: TextInputType.number,
+              // onChanged lo maneja el parent via listener
             ),
           ),
           SizedBox(
-            width: 140,
-            child: DropdownButtonFormField<String>(
+            width: 160,
+            child: DropdownButtonFormField<String?>(
               value: type,
               items: const [
                 DropdownMenuItem(value: null, child: Text('Todos')),
@@ -288,8 +334,16 @@ class _Filters extends StatelessWidget {
           ),
           ElevatedButton(
             onPressed: onSearch,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueGrey.shade900),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueGrey.shade900,
+              visualDensity: VisualDensity.comfortable,
+            ),
             child: const Text('Buscar'),
+          ),
+          OutlinedButton.icon(
+            onPressed: onClear,
+            icon: const Icon(Icons.clear),
+            label: const Text('Limpiar'),
           ),
         ],
       ),
@@ -305,9 +359,11 @@ class _TotalChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final nf = NumberFormat.decimalPattern('es_MX');
+    final s = nf.format(value.round()); // entero con separador
     return Chip(
       label: Text(
-        '$label: ${value.toStringAsFixed(2)}',
+        '$label: $s',
         style: TextStyle(fontWeight: bold ? FontWeight.bold : FontWeight.normal),
       ),
       visualDensity: VisualDensity.compact,
