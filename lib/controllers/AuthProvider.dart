@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:erpraf/models/LoginRequest.dart';
@@ -20,6 +20,33 @@ class AuthProvider with ChangeNotifier {
 
   String? get token => _token;
   int? get userId => _userId;
+  bool get isLoggedIn => _token != null && _userId != null;
+
+  // Helpers
+  int? _asInt(dynamic v) {
+    if (v == null) return null;
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v);
+    return null;
+  }
+
+  T? _pick<T>(Map<String, dynamic>? j, List<List<String>> paths) {
+    if (j == null) return null;
+    for (final path in paths) {
+      dynamic cur = j;
+      for (final key in path) {
+        if (cur is Map<String, dynamic> && cur.containsKey(key)) {
+          cur = cur[key];
+        } else {
+          cur = null;
+          break;
+        }
+      }
+      if (cur is T) return cur as T;
+    }
+    return null;
+  }
 
   Future<void> login(String email, String password) async {
     try {
@@ -32,7 +59,6 @@ class AuthProvider with ChangeNotifier {
           )
           .timeout(const Duration(seconds: 12));
 
-      // Intenta parsear JSON con seguridad
       Map<String, dynamic>? json;
       try {
         json = jsonDecode(response.body) as Map<String, dynamic>?;
@@ -40,13 +66,35 @@ class AuthProvider with ChangeNotifier {
         json = null;
       }
 
-      if (response.statusCode == 200 && (json?['success'] == true)) {
-        _token = json?['token'];
-        _userId = json?['userId'];
+      final ok = (json?['success'] == true) || (json?['ok'] == true);
+
+      if (response.statusCode == 200 && ok) {
+        // token puede venir en: token, data.token, result.token
+        final tok = _pick<String>(json, [
+          ['token'],
+          ['data', 'token'],
+          ['result', 'token'],
+        ]);
+
+        // userId puede venir en: userId, data.userId, user.id
+        final rawUserId = _pick<dynamic>(json, [
+          ['userId'],
+          ['data', 'userId'],
+          ['user', 'id'],
+          ['result', 'userId'],
+        ]);
+        final uid = _asInt(rawUserId);
+
+        if (tok == null || uid == null) {
+          throw AuthException('Respuesta de login incompleta (token/usuario).');
+        }
+
+        _token = tok;
+        _userId = uid;
 
         final prefs = await SharedPreferences.getInstance();
-        if (_token != null) await prefs.setString('token', _token!);
-        if (_userId != null) await prefs.setInt('userId', _userId!);
+        await prefs.setString('token', _token!);
+        await prefs.setInt('userId', _userId!);
 
         notifyListeners();
         return;
@@ -57,8 +105,7 @@ class AuthProvider with ChangeNotifier {
       }
 
       throw AuthException(
-        json?['message'] ??
-            'Error del servidor (${response.statusCode}). Inténtalo de nuevo.',
+        json?['message'] ?? 'Error del servidor (${response.statusCode}). Inténtalo de nuevo.',
       );
     } on SocketException {
       throw AuthException('Sin conexión a Internet. Verifica tu red.');
@@ -77,6 +124,15 @@ class AuthProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('token');
     _userId = prefs.getInt('userId');
+    notifyListeners();
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token');
+    await prefs.remove('userId');
+    _token = null;
+    _userId = null;
     notifyListeners();
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -8,8 +9,8 @@ import 'package:erpraf/controllers/CustomerProvider.dart';
 import 'package:erpraf/controllers/AuthProvider.dart';
 import 'package:erpraf/models/sales/sale_models.dart';
 import 'package:erpraf/models/CustomerModels/customer_option.dart';
+import 'package:erpraf/widgets/app_snackbar.dart';
 
-// Pantalla para crear cliente
 import 'package:erpraf/views/UserManagment/CreateCustomerScreen.dart';
 
 class CreateSaleScreen extends StatefulWidget {
@@ -55,6 +56,10 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
   bool _didInit = false;
   bool _saving = false;
 
+  // ==== Formateador MXN solo para UI ====
+  final _mxn = NumberFormat.currency(locale: 'es_MX', symbol: r'$');
+  String fmtMoney(num? v) => _mxn.format(v ?? 0);
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -67,7 +72,7 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         if (invProv.items.isEmpty) invProv.fetchAll();
-        await custProv.fetchOptions(); 
+        await custProv.fetchOptions();
         _dateCtrl.text = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
       });
 
@@ -94,16 +99,22 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
   void _addRow() {
     if (_selectedProductId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona un producto')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.warning,
+        title: 'Cuidado',
+        message: 'Selecciona un producto',
       );
       return;
     }
     final qty = double.tryParse(_qtyCtrl.text.trim());
     final prc = double.tryParse(_priceCtrl.text.trim());
     if (qty == null || qty <= 0 || prc == null || prc < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cantidad/Precio inválidos')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.warning,
+        title: 'Cuidado',
+        message: 'Cantidad/Precio inválidos',
       );
       return;
     }
@@ -143,21 +154,27 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
 
   Future<void> _save() async {
     if (_rows.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Agrega al menos un producto')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.warning,
+        title: 'Cuidado',
+        message: 'Agrega al menos un producto',
       );
       return;
     }
     if (_selectedCustomerId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona un cliente')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.warning,
+        title: 'Cuidado',
+        message: 'Selecciona un cliente',
       );
       return;
     }
 
     setState(() => _saving = true);
 
-    final userId = context.read<AuthProvider>().userId; 
+    final userId = context.read<AuthProvider>().userId;
 
     final req = CreateSaleRequest(
       paymentMethod: _selectedPayment,
@@ -175,12 +192,20 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Venta creada (ID: $id)')),
+      AppSnackBar.show(
+        context,
+        type: SnackType.success,
+        title: 'Éxito',
+        message: 'Venta creada (ID: $id)',
       );
     } else {
       final err = salesProv.error ?? 'No se pudo crear la venta';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
+      AppSnackBar.show(
+        context,
+        type: SnackType.error,
+        title: 'Error',
+        message: err,
+      );
     }
   }
 
@@ -209,7 +234,6 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-                    // Cabecera (cliente + pago + fecha + descuento global)
                     Wrap(
                       spacing: 12,
                       runSpacing: 12,
@@ -278,22 +302,19 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                         ),
                         SizedBox(
                           width: 220,
-                          child: SizedBox(
-                            width: 220,
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedPayment,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Método de pago',
-                                border: OutlineInputBorder(),
-                              ),
-                              items: _paymentMethods
-                                  .map((m) => DropdownMenuItem(
-                                      value: m, child: Text(m)))
-                                  .toList(),
-                              onChanged: (v) =>
-                                  setState(() => _selectedPayment = v),
+                          child: DropdownButtonFormField<String>(
+                            value: _selectedPayment,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Método de pago',
+                              border: OutlineInputBorder(),
                             ),
+                            items: _paymentMethods
+                                .map((m) => DropdownMenuItem(
+                                    value: m, child: Text(m)))
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => _selectedPayment = v),
                           ),
                         ),
                         SizedBox(
@@ -303,17 +324,6 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                             readOnly: true,
                             decoration: const InputDecoration(
                               labelText: 'Fecha',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 200,
-                          child: TextField(
-                            controller: _discountCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Descuento global',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -350,6 +360,10 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                           child: TextField(
                             controller: _qtyCtrl,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            textAlign: TextAlign.right, // alineado
                             decoration: const InputDecoration(
                               labelText: 'Cantidad',
                               border: OutlineInputBorder(),
@@ -361,9 +375,18 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                           width: 140,
                           child: TextField(
                             controller: _priceCtrl,
-                            keyboardType: TextInputType.number,
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true, signed: false),
+                            inputFormatters: [
+                              // solo números y punto decimal, max 2 decimales
+                              FilteringTextInputFormatter.allow(
+                                  RegExp(r'^\d*\.?\d{0,2}$')),
+                            ],
+                            textAlign: TextAlign.right, // alineado
                             decoration: const InputDecoration(
                               labelText: 'Precio',
+                              prefixText: '\$ ',
+                              suffixText: 'MXN',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -380,18 +403,17 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Encabezados del carrito
+                    // Encabezado de carrito
                     Container(
                       color: const Color.fromARGB(120, 57, 112, 129),
                       padding: const EdgeInsets.symmetric(
                           vertical: 8, horizontal: 6),
                       child: const Row(
                         children: [
-                          _Header('Producto'),
-                          _Header('Cantidad'),
-                          _Header('Precio'),
-                          _Header('Importe'),
-                          _Header(''),
+                          _Header('Producto', flex: 4),
+                          _Header('Cantidad', flex: 2, right: true),
+                          _Header('Precio',   flex: 2, right: true),
+                          _Header('Importe',  flex: 2, right: true),
                         ],
                       ),
                     ),
@@ -413,10 +435,11 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
                                 vertical: 8, horizontal: 6),
                             child: Row(
                               children: [
-                                _Cell(r.productName),
-                                _Cell(r.quantity),
-                                _Cell(r.price),
-                                _Cell(imp.toStringAsFixed(2)),
+                                _Cell(r.productName, flex: 4),
+                                _Cell(q.toStringAsFixed(0),
+                                    flex: 2, right: true),
+                                _Cell(fmtMoney(p), flex: 2, right: true),
+                                _Cell(fmtMoney(imp), flex: 2, right: true),
                                 IconButton(
                                   icon: const Icon(Icons.delete,
                                       color: Colors.red),
@@ -490,28 +513,55 @@ class _CreateSaleScreenState extends State<CreateSaleScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('$label: ',
-                style: TextStyle(
-                    fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
-            Text(val.toStringAsFixed(2),
-                style: TextStyle(
-                    fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
+            Text(
+              '$label: ',
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            Text(
+              fmtMoney(val), // ← Mostrar en pesos MXN
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
           ],
         ),
       );
 }
 
+// ===== helpers visuales con alineación y flex =====
 class _Header extends StatelessWidget {
   final String t;
-  const _Header(this.t);
+  final int flex;
+  final bool right;
+  const _Header(this.t, {this.flex = 1, this.right = false, super.key});
   @override
   Widget build(BuildContext context) => Expanded(
-      child: Text(t, style: const TextStyle(fontWeight: FontWeight.bold)));
+        flex: flex,
+        child: Text(
+          t,
+          textAlign: right ? TextAlign.right : TextAlign.left,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      );
 }
 
 class _Cell extends StatelessWidget {
   final String t;
-  const _Cell(this.t);
+  final int flex;
+  final bool right;
+  const _Cell(this.t, {this.flex = 1, this.right = false, super.key});
   @override
-  Widget build(BuildContext context) => Expanded(child: Text(t));
+  Widget build(BuildContext context) => Expanded(
+        flex: flex,
+        child: Text(
+          t,
+          textAlign: right ? TextAlign.right : TextAlign.left,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: const TextStyle(fontSize: 14),
+        ),
+      );
 }

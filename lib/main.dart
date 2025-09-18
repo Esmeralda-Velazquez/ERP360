@@ -25,6 +25,9 @@ void main() {
         ChangeNotifierProvider(create: (_) => InventoryProvider()),
         ChangeNotifierProvider(create: (_) => MovementsProvider()),
         ChangeNotifierProvider(create: (_) => SalesProvider()),
+                ChangeNotifierProvider(
+          create: (_) => AuthProvider()..loadSession(),
+        ),
       ],
       child: const MyApp(),
     ),

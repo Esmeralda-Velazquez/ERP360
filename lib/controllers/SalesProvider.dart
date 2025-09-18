@@ -127,4 +127,39 @@ class SalesProvider with ChangeNotifier {
     return (false, null);
   }
   }
+    Future<bool> emailReceipt(int saleId, {required String toEmail}) async {
+    final uri = Uri.parse('$_baseUrl/api/sales/$saleId/email');
+    try {
+      final res = await http.post(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'toEmail': toEmail}),
+      );
+
+      Map<String, dynamic>? j;
+      try {
+        j = jsonDecode(res.body) as Map<String, dynamic>?;
+      } catch (_) {
+        j = null;
+      }
+
+      final isOkJson = (j?['ok'] == true) || (j?['success'] == true);
+
+      if (res.statusCode == 200 && (isOkJson || j != null)) {
+        return true;
+      } else {
+        _error = j?['message'] ??
+            'Error ${res.statusCode}: ${res.body.isEmpty ? 'sin contenido' : res.body}';
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _error = 'Error conexión: $e';
+      notifyListeners();
+      return false;
+    }
+  }
 }
