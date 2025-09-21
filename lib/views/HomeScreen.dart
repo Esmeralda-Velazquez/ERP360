@@ -67,7 +67,7 @@ class HomeScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                buttonMenu('Gestion de usuarios',
+                buttonMenu('Gestión de usuarios',
                     Icons.manage_accounts_outlined, Colors.indigo, () {
                   Navigator.push(
                     context,

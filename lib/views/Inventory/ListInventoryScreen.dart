@@ -109,7 +109,7 @@ class _ListInventoryScreenState extends State<ListInventoryScreen> {
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: primary,
-          title: const Text('Listado de Inventario'),
+          title: const Text('Listado de Inventarios'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),

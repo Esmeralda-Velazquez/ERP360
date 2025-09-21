@@ -162,7 +162,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
                             child: TextFormField(
                               controller: _priceCtrl,
                               decoration: const InputDecoration(
-                                labelText: 'Precio (texto - tu BD usa varchar)',
+                                labelText: 'Precio',
                                 border: OutlineInputBorder(),
                                 prefixIcon: Icon(Icons.attach_money),
                               ),

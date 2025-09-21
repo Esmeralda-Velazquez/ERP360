@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:erpraf/widgets/buttonMenu.dart';
 import 'package:erpraf/views/Sales/CreateSaleScreen.dart';
 import 'package:erpraf/views/Sales/ListSalesScreen.dart';
-
+import 'package:erpraf/views/Sales/ListCancelledSalesScreen.dart';
 
 class MenuSaleScreen extends StatelessWidget {
   const MenuSaleScreen({super.key});
@@ -28,7 +28,8 @@ class MenuSaleScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                buttonMenu('Nueva venta', Icons.people, Colors.blueGrey.shade900,
+                buttonMenu(
+                    'Nueva venta', Icons.people, Colors.blueGrey.shade900,
                     imageAsset: 'assets/list.png', () {
                   Navigator.push(
                     context,
@@ -45,6 +46,17 @@ class MenuSaleScreen extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => const ListSalesScreen(),
+                    ),
+                  );
+                }),
+                const SizedBox(width: 30),
+                buttonMenu(
+                    'Ventas canceladas', Icons.people, Colors.blueGrey.shade900,
+                    imageAsset: 'assets/list.png', () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ListCancelledSalesScreen(),
                     ),
                   );
                 }),

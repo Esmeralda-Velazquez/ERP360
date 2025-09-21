@@ -3,6 +3,7 @@ import 'package:erpraf/widgets/buttonMenu.dart';
 import 'package:erpraf/views/Inventory/ListInventoryScreen.dart';
 import 'package:erpraf/views/Inventory/ListMovementsScreen.dart';
 
+
 class MenuInventoryScreen extends StatelessWidget {
   const MenuInventoryScreen({super.key});
 
@@ -12,7 +13,7 @@ class MenuInventoryScreen extends StatelessWidget {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: Colors.blueGrey.shade900,
-        title: const Text('Inventario'),
+        title: const Text('Inventarios'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
